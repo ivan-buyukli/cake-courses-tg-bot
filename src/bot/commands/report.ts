@@ -12,6 +12,10 @@ import { createUserRepository } from "../../repositories/userRepository.js";
 import { createReportConfigRepository } from "../../repositories/reportConfigRepository.js";
 import { renderReportOverviewPng } from "../../utils/reportPng.js";
 import { createLogger } from "../../utils/logger.js";
+import {
+  emptySubscriptionsKeyboard,
+  reportActionsKeyboard,
+} from "../ui/navigation.js";
 
 export async function reportCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
@@ -32,7 +36,9 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     ctx.env.ENCRYPTION_KEY,
   );
   if (subscriptions.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。\n发送 /add 添加第一个订阅。");
+    await ctx.reply("你还没有添加任何订阅。", {
+      reply_markup: emptySubscriptionsKeyboard(),
+    });
     return;
   }
 
@@ -60,6 +66,9 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   const fallbackText = formatReportText(report);
 
   try {
+    if (ctx.chat) {
+      await ctx.api.sendChatAction(ctx.chat.id, "upload_photo");
+    }
     const overviewPng = await renderReportOverviewPng(
       report,
       textReport.currentMonthItems,
@@ -69,6 +78,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
       new InputFile(overviewPng, "subscription-spending-overview.png"),
       {
         caption: "订阅支出总览。发送 /report_text 查看完整明细。",
+        reply_markup: reportActionsKeyboard(),
       },
     );
     logger.info("Report generated", {
@@ -104,7 +114,9 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
       yearlyProjectionMissingRateCount:
         report.yearlyProjection.missingRateCurrencies.length,
     });
-    await ctx.reply(fallbackText);
+    await ctx.reply(fallbackText, {
+      reply_markup: reportActionsKeyboard(),
+    });
   }
 }
 

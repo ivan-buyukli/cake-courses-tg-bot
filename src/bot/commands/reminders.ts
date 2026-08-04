@@ -1,4 +1,6 @@
-import { BotContext } from "../../types/context.js";
+import { InlineKeyboard } from "grammy";
+import type { InputRichMessage } from "grammy/types";
+import type { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
@@ -6,6 +8,8 @@ import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { addDays, formatDate, getLocalTimeInfo } from "../../utils/date.js";
 import { Env } from "../../types/env.js";
+import { emptyRemindersKeyboard } from "../ui/navigation.js";
+import { richTableCell, sendRichOrPlain } from "../ui/richMessage.js";
 
 function getReminderDaysAhead(env: Env): number {
   const raw = env.REMINDER_DAYS_AHEAD;
@@ -49,7 +53,9 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
     .sort((a, b) => a.nextBillingDate.localeCompare(b.nextBillingDate));
 
   if (upcoming.length === 0) {
-    await ctx.reply("近期没有即将扣款的订阅。");
+    await ctx.reply("近期没有即将扣款的订阅。", {
+      reply_markup: emptyRemindersKeyboard(),
+    });
     logger.info("Reminders command: no upcoming renewals");
     return;
   }
@@ -67,9 +73,72 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
     return parts.join(" — ");
   });
 
-  await ctx.reply("近期扣款订阅：\n\n" + lines.join("\n"));
+  const keyboard = new InlineKeyboard();
+  for (const sub of upcoming.slice(0, 8)) {
+    if (sub.billingCycle !== "custom") {
+      keyboard
+        .text(
+          `✅ ${truncateButtonLabel(sub.name)} 已续费`,
+          `reminder:renew:${sub.id}:${sub.nextBillingDate}`,
+        )
+        .success()
+        .row();
+    }
+  }
+  keyboard
+    .text("📋 管理订阅", "nav:list")
+    .primary()
+    .text("⚙️ 提醒设置", "nav:settings");
+
+  const richMessage: InputRichMessage = {
+    blocks: [
+      { type: "heading", size: 1, text: "近期扣款" },
+      {
+        type: "paragraph",
+        text: `${today} 至 ${maxDate}，共 ${upcoming.length} 项`,
+      },
+      {
+        type: "table",
+        is_bordered: true,
+        is_striped: true,
+        cells: [
+          [
+            richTableCell("日期", { header: true }),
+            richTableCell("订阅", { header: true }),
+            richTableCell("金额", { header: true, align: "right" }),
+          ],
+          ...upcoming.map((sub) => [
+            richTableCell(sub.nextBillingDate),
+            richTableCell(sub.name),
+            richTableCell(formatPrice(sub.price, sub.currency), {
+              align: "right" as const,
+            }),
+          ]),
+        ],
+      },
+    ],
+  };
+  const richResult = await sendRichOrPlain(ctx, {
+    richMessage,
+    plainText: "近期扣款订阅：\n\n" + lines.join("\n"),
+    replyMarkup: keyboard,
+  });
+  if (richResult.fallbackErrorType) {
+    logger.warn("Rich reminders unavailable; sent plain fallback", {
+      errorType: richResult.fallbackErrorType,
+    });
+  }
 
   logger.info("Reminders command: listed upcoming renewals", {
     count: upcoming.length,
   });
+}
+
+function formatPrice(price: number | undefined, currency?: string): string {
+  if (price === undefined) return "—";
+  return currency ? `${price} ${currency}` : String(price);
+}
+
+function truncateButtonLabel(name: string): string {
+  return name.length > 14 ? `${name.slice(0, 13)}…` : name;
 }

@@ -19,7 +19,11 @@ function createMockKV(): KVNamespace & {
 
   return {
     get: async (key: string) => store.get(key) ?? null,
-    put: async (key: string, value: string, options?: { expirationTtl?: number }) => {
+    put: async (
+      key: string,
+      value: string,
+      options?: { expirationTtl?: number },
+    ) => {
       store.set(key, value);
       putOptions.set(key, options ?? {});
     },

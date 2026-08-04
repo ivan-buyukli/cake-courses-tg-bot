@@ -28,6 +28,12 @@ import {
   SETTINGS_ONBOARDING_MESSAGE,
   shouldShowSettingsOnboarding,
 } from "../onboarding/settingsOnboarding.js";
+import {
+  forceReply,
+  hideMainMenu,
+  restoreMainMenu,
+} from "../ui/conversationUi.js";
+import { postAddKeyboard } from "../ui/navigation.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts /add and never completes it, the conversation waits
@@ -62,6 +68,7 @@ function confirmKeyboard(): InlineKeyboard {
   return binaryActionKeyboard({
     confirmData: "add:confirm",
     cancelData: "add:cancel",
+    confirmStyle: "success",
   });
 }
 
@@ -78,17 +85,21 @@ function reviewKeyboard(price?: number): InlineKeyboard {
     .text("体验", "add:toggle_trial")
     .row()
     .text("名称", "add:edit_name")
+    .primary()
     .text("价格", "add:edit_price")
+    .primary()
     .row();
 
   if (price !== undefined) {
-    keyboard.text("币种", "add:edit_currency");
+    keyboard.text("币种", "add:edit_currency").primary();
   }
 
   return keyboard
     .text("周期", "add:edit_cycle")
+    .primary()
     .row()
-    .text("日期", "add:edit_date");
+    .text("日期", "add:edit_date")
+    .primary();
 }
 
 export function resolveAddCurrencyForPrice(
@@ -224,7 +235,6 @@ async function collectCurrencyForPrice(
 
   return collectCurrencyInput(conversation, ctx, {
     hasPrice: true,
-    restartHint: "\n请发送 /add 重新开始。",
   });
 }
 
@@ -233,19 +243,23 @@ async function collectName(
   ctx: BaseBotContext,
   prompt: string,
 ): Promise<string | null> {
-  await ctx.reply(prompt);
-  const nameCtx = await conversation.waitFor("message:text");
-  const nameText = nameCtx.msg.text;
-  if (isCancelInput(nameText)) {
-    await ctx.reply("已取消。");
-    return null;
+  await ctx.reply(prompt, { reply_markup: forceReply("输入订阅名称") });
+  while (true) {
+    const nameCtx = await conversation.waitFor("message:text");
+    const nameText = nameCtx.msg.text;
+    if (isCancelInput(nameText)) {
+      await ctx.reply("已取消。");
+      return null;
+    }
+    const nameError = validateAddName(nameText);
+    if (nameError) {
+      await ctx.reply(nameError + "\n请在当前步骤重新输入。", {
+        reply_markup: forceReply("输入订阅名称"),
+      });
+      continue;
+    }
+    return nameText.trim();
   }
-  const nameError = validateAddName(nameText);
-  if (nameError) {
-    await ctx.reply(nameError + "\n请发送 /add 重新开始。");
-    return null;
-  }
-  return nameText.trim();
 }
 
 async function collectPrice(
@@ -275,8 +289,10 @@ async function collectPrice(
       }
       const priceResult = validateAddPrice(priceText);
       if (priceResult.error) {
-        await ctx.reply(priceResult.error + "\n请发送 /add 重新开始。");
-        return { cancelled: true };
+        await ctx.reply(priceResult.error + "\n请在当前步骤重新输入。", {
+          reply_markup: forceReply("输入价格，或发送 skip"),
+        });
+        continue;
       }
       await safeDeletePromptMessage(
         ctx,
@@ -314,8 +330,8 @@ async function collectCycle(
     callbackData: (cycle) => `cycle:${cycle}`,
     parseCycle: (callbackData) =>
       parseCycleCallbackData(callbackData)?.cycle ?? null,
-    invalidSelectionMessage: "请点击按钮选择扣款周期。\n请发送 /add 重新开始。",
-    restartHint: "\n请发送 /add 重新开始。",
+    invalidSelectionMessage: "请点击按钮选择扣款周期，或点击取消。",
+    cancelData: "cycle:cancel",
   });
 }
 
@@ -348,6 +364,7 @@ export async function addConversation(
   const userKey = ctxData.userKey;
   const encryptionKey = ctxData.encryptionKey;
   const logger = createLogger(ctxData.requestId);
+  await hideMainMenu(ctx, "开始添加订阅。可随时发送 /cancel 或“取消”退出。");
 
   const settingsOnboarding = await conversation.external(async (outsideCtx) => {
     const repo = createUserRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -369,11 +386,13 @@ export async function addConversation(
 
   const name = await collectName(conversation, ctx, "订阅名称是什么？");
   if (!name) {
+    await restoreMainMenu(ctx);
     return;
   }
 
   const priceSelection = await collectPrice(conversation, ctx);
   if (priceSelection.cancelled) {
+    await restoreMainMenu(ctx);
     return;
   }
 
@@ -384,16 +403,19 @@ export async function addConversation(
     explicitDefaultCurrency,
   );
   if (currencySelection.cancelled) {
+    await restoreMainMenu(ctx);
     return;
   }
 
   const cycleSelection = await collectCycle(conversation, ctx);
   if (!cycleSelection) {
+    await restoreMainMenu(ctx);
     return;
   }
 
   const dateSelection = await collectDate(conversation, ctx);
   if (!dateSelection) {
+    await restoreMainMenu(ctx);
     return;
   }
 
@@ -408,17 +430,16 @@ export async function addConversation(
     autoRenew: true,
   };
 
-  while (true) {
-    await ctx.reply(buildReviewMessage(draft), {
-      reply_markup: reviewKeyboard(draft.price),
-    });
+  const reviewMessage = await ctx.reply(buildReviewMessage(draft), {
+    reply_markup: reviewKeyboard(draft.price),
+  });
 
+  while (true) {
     const reviewCtx = await conversation.waitForCallbackQuery(/^add:/);
     const parsedReview = parseAddConfirmCallbackData(
       reviewCtx.callbackQuery.data,
     );
     await reviewCtx.answerCallbackQuery();
-    await safeDeleteMessage(reviewCtx);
 
     if (!parsedReview) {
       await ctx.reply("无效的选择，请重新确认。");
@@ -426,7 +447,13 @@ export async function addConversation(
     }
 
     if (parsedReview.action === "cancel") {
-      await ctx.reply("已取消。");
+      await safeEditReviewMessage(
+        ctx,
+        reviewMessage.chat.id,
+        reviewMessage.message_id,
+        "已取消添加订阅。",
+      );
+      await restoreMainMenu(ctx);
       logger.info("Add conversation cancelled at review");
       return;
     }
@@ -437,11 +464,13 @@ export async function addConversation(
 
     if (parsedReview.action === "toggle_trial") {
       draft.isTrial = !draft.isTrial;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
 
     if (parsedReview.action === "toggle_autorenew") {
       draft.autoRenew = !draft.autoRenew;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
 
@@ -451,14 +480,21 @@ export async function addConversation(
         ctx,
         "请发送新的订阅名称：",
       );
-      if (!updatedName) return;
+      if (!updatedName) {
+        await restoreMainMenu(ctx);
+        return;
+      }
       draft.name = updatedName;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
 
     if (parsedReview.action === "edit_price") {
       const updatedPrice = await collectPrice(conversation, ctx);
-      if (updatedPrice.cancelled) return;
+      if (updatedPrice.cancelled) {
+        await restoreMainMenu(ctx);
+        return;
+      }
       draft.price = updatedPrice.price;
       const updatedCurrency = await collectCurrencyForPrice(
         conversation,
@@ -466,8 +502,12 @@ export async function addConversation(
         draft.price,
         explicitDefaultCurrency,
       );
-      if (updatedCurrency.cancelled) return;
+      if (updatedCurrency.cancelled) {
+        await restoreMainMenu(ctx);
+        return;
+      }
       draft.currency = updatedCurrency.currency;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
 
@@ -475,31 +515,45 @@ export async function addConversation(
       if (draft.price === undefined) {
         await ctx.reply("未填写价格时不需要币种。");
         draft.currency = undefined;
+        await refreshReviewMessage(ctx, reviewMessage, draft);
         continue;
       }
       const updatedCurrency = await collectCurrencyInput(conversation, ctx, {
         hasPrice: true,
-        restartHint: "\n请发送 /add 重新开始。",
       });
-      if (updatedCurrency.cancelled) return;
+      if (updatedCurrency.cancelled) {
+        await restoreMainMenu(ctx);
+        return;
+      }
       draft.currency = updatedCurrency.currency;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
 
     if (parsedReview.action === "edit_cycle") {
       const updatedCycle = await collectCycle(conversation, ctx);
-      if (!updatedCycle) return;
+      if (!updatedCycle) {
+        await restoreMainMenu(ctx);
+        return;
+      }
       draft.cycle = updatedCycle.cycle;
       draft.billingInterval = updatedCycle.billingInterval;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
 
     if (parsedReview.action === "edit_date") {
       const updatedDate = await collectDate(conversation, ctx);
-      if (!updatedDate) return;
+      if (!updatedDate) {
+        await restoreMainMenu(ctx);
+        return;
+      }
       draft.nextBillingDate = updatedDate;
+      await refreshReviewMessage(ctx, reviewMessage, draft);
       continue;
     }
+
+    await refreshReviewMessage(ctx, reviewMessage, draft);
   }
 
   // Save
@@ -534,11 +588,46 @@ export async function addConversation(
     shortId: shortId(sub.id),
   });
 
-  await ctx.reply(
-    `✅ 已添加“${draft.name}”。\n短 ID：${shortId(sub.id)}\n发送 /list 查看全部订阅。`,
+  await safeEditReviewMessage(
+    ctx,
+    reviewMessage.chat.id,
+    reviewMessage.message_id,
+    `✅ 已添加“${draft.name}”。\n短 ID：${shortId(sub.id)}`,
+    postAddKeyboard(),
   );
+  await restoreMainMenu(ctx, "添加完成，主菜单已恢复。");
 
   if (settingsOnboarding.shouldShow && (await getLatestSettingsOnboarding())) {
     await ctx.reply(SETTINGS_ONBOARDING_MESSAGE);
+  }
+}
+
+async function refreshReviewMessage(
+  ctx: BaseBotContext,
+  message: { chat: { id: number }; message_id: number },
+  draft: AddDraft,
+): Promise<void> {
+  await safeEditReviewMessage(
+    ctx,
+    message.chat.id,
+    message.message_id,
+    buildReviewMessage(draft),
+    reviewKeyboard(draft.price),
+  );
+}
+
+async function safeEditReviewMessage(
+  ctx: BaseBotContext,
+  chatId: number,
+  messageId: number,
+  text: string,
+  replyMarkup?: InlineKeyboard,
+): Promise<void> {
+  try {
+    await ctx.api.editMessageText(chatId, messageId, text, {
+      reply_markup: replyMarkup,
+    });
+  } catch {
+    await ctx.reply(text, { reply_markup: replyMarkup });
   }
 }

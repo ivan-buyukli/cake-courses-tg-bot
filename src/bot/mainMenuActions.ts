@@ -1,7 +1,7 @@
 import type { BotContext } from "../types/context.js";
 import { addCommand } from "./commands/add.js";
 import { helpCommand } from "./commands/help.js";
-import { listFullCommand } from "./commands/list.js";
+import { listCommand } from "./commands/list.js";
 import { remindersCommand } from "./commands/reminders.js";
 import { reportCommand } from "./commands/report.js";
 import { settingsCommand } from "./commands/settings.js";
@@ -19,7 +19,7 @@ export async function dispatchMainMenuAction(
       await addCommand(withMessageText(ctx, "/add"));
       return;
     case "list":
-      await listFullCommand(ctx);
+      await listCommand(ctx);
       return;
     case "report":
       await reportCommand(ctx);
@@ -36,7 +36,7 @@ export async function dispatchMainMenuAction(
   }
 }
 
-function withMessageText(ctx: BotContext, text: string): BotContext {
+export function withMessageText(ctx: BotContext, text: string): BotContext {
   const commandCtx = Object.create(ctx) as BotContext;
   Object.defineProperty(commandCtx, "msg", {
     value: { ...ctx.msg, text },

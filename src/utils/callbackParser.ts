@@ -356,6 +356,11 @@ export type SettingsCallbackData =
   | { action: "timezone_offset"; offset: string }
   | { action: "timezone_offset_other" }
   | { action: "timezone_offset_back" }
+  | { action: "privacy" }
+  | { action: "export" }
+  | { action: "delete" }
+  | { action: "back" }
+  | { action: "cancel" }
   | { action: "done" };
 
 /**
@@ -371,6 +376,11 @@ export type SettingsCallbackData =
  *   settings:tzoffset:<offset>
  *   settings:tzoffset:other
  *   settings:tzoffset:back
+ *   settings:privacy
+ *   settings:export
+ *   settings:delete
+ *   settings:back
+ *   settings:cancel
  *   settings:done
  */
 export function parseSettingsCallbackData(
@@ -384,6 +394,11 @@ export function parseSettingsCallbackData(
   if (value === "hour") return { action: "hour" };
   if (value === "timezone") return { action: "timezone" };
   if (value === "tzoffset") return { action: "timezone_offset_menu" };
+  if (value === "privacy") return { action: "privacy" };
+  if (value === "export") return { action: "export" };
+  if (value === "delete") return { action: "delete" };
+  if (value === "back") return { action: "back" };
+  if (value === "cancel") return { action: "cancel" };
   if (value === "done") return { action: "done" };
 
   const tzOffsetPrefix = "tzoffset:";

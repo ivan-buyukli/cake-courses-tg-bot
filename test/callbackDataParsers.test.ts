@@ -472,6 +472,24 @@ describe("parseListCallbackData", () => {
 });
 
 describe("parseSettingsCallbackData timezone offsets", () => {
+  it("parses privacy and data navigation actions", () => {
+    expect(parseSettingsCallbackData("settings:privacy")).toEqual({
+      action: "privacy",
+    });
+    expect(parseSettingsCallbackData("settings:export")).toEqual({
+      action: "export",
+    });
+    expect(parseSettingsCallbackData("settings:delete")).toEqual({
+      action: "delete",
+    });
+    expect(parseSettingsCallbackData("settings:back")).toEqual({
+      action: "back",
+    });
+    expect(parseSettingsCallbackData("settings:cancel")).toEqual({
+      action: "cancel",
+    });
+  });
+
   it("parses timezone offset menu", () => {
     expect(parseSettingsCallbackData("settings:tzoffset")).toEqual({
       action: "timezone_offset_menu",

@@ -7,10 +7,10 @@ This document reviews the Telegram interactive flows, session behavior, callback
 `/start` sends a short welcome message with a persistent reply keyboard. The menu actions route to existing flows instead of duplicating business logic:
 
 - **添加订阅** starts the `/add` conversation.
-- **管理订阅** opens the `/list_full` inline list manager.
+- **管理订阅** opens the `/list` inline list manager. `/list_full` is a compatibility alias.
 - **支出报告** runs `/report`.
 - **近期扣款** runs `/reminders`.
-- **提醒设置** starts `/settings`.
+- **设置** starts `/settings`.
 - **帮助** shows `/help`.
 
 The persistent reply keyboard is the closest Telegram-supported behavior to showing choices when a user returns to the chat. Bots cannot detect that a user has opened or returned to the chat screen, so the bot cannot proactively pop up a fresh menu without an incoming update.
@@ -31,7 +31,9 @@ The `/add` command starts a multi-step conversation when called without argument
 
 If the user sends `/cancel` at any step, the conversation exits immediately and **no partial subscription is saved**.
 
-If validation fails at any step, the conversation ends with an error message and the user must restart with `/add`.
+If validation fails, the flow remains on the current step and asks for a new
+value. The review is one persistent panel: trial/renewal toggles and field edits
+update it in place.
 
 ### Legacy one-line usage
 `/add Netflix 12.99 CNY monthly 2026-06-01` still works and bypasses the conversation.
@@ -43,12 +45,12 @@ One-line usage creates active, paid, auto-renewing subscriptions.
 Editing is available from the inline list manager:
 
 ### Inline edit menu (callback-based)
-1. User clicks a subscription from `/list_full`, then clicks **编辑**.
+1. User clicks a subscription from `/list`, then clicks **编辑**.
 2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Back.
 3. Clicking a text field starts `editField` conversation.
 4. Clicking **Cycle** starts `editCycle` conversation with an inline keyboard.
 
-Trial and auto-renewal are direct actions on the `/list_full` detail view instead of edit-menu fields.
+Trial and auto-renewal are direct actions on the `/list` detail view instead of edit-menu fields.
 
 ### editField conversation
 - Prompts for the new value.
@@ -61,11 +63,13 @@ Trial and auto-renewal are direct actions on the `/list_full` detail view instea
 - Shows inline keyboard with cycle options.
 - Saves immediately after selection for fixed cycles.
 - For Advanced interval, shows common presets first; custom interval text remains available behind **其他**.
-- `/cancel` is not available here; the user can simply ignore the message.
+- The cycle selector and advanced interval selector both provide back/cancel
+  controls, and `/cancel` or `取消` aborts without saving.
 
-## /list_full Behavior
+## `/list` and `/list_full` Behavior
 
-`/list_full` opens a paginated inline list manager:
+`/list` opens the paginated inline list manager. `/list_full` invokes the same
+handler for compatibility, while `/list_text` preserves the text-only view:
 
 - Each page shows up to 8 subscriptions.
 - Active subscriptions sort before paused subscriptions.
@@ -75,7 +79,8 @@ Trial and auto-renewal are direct actions on the `/list_full` detail view instea
 - Pause happens immediately.
 - Resume starts a short confirmation/date conversation.
 
-Older list messages may show stale state; callback handlers re-load from KV before mutating.
+Expired panels are edited into a visible expired state with **重新开始** and
+**返回菜单** actions. Callback handlers always re-load from KV before mutating.
 
 Scheduled reminder messages include quick renewal buttons for subscriptions whose next cycle can be calculated. Clicking the button advances the subscription by one billing cycle and moves the reminder index, so the same due date will not keep reminding on later days. The callback includes the reminder's original billing date, so stale clicks after the date was already advanced do not advance another cycle.
 
@@ -83,11 +88,12 @@ Scheduled reminder messages include quick renewal buttons for subscriptions whos
 
 - Active conversations recognize `/cancel` and `取消` as cancellation input.
 - During `/add`, cancelling before the final Confirm step guarantees **no partial data is written to KV**.
-- Outside an active conversation, `/cancel` is not registered as a standalone command.
+- Outside an active conversation, `/cancel` explains that no operation is in
+  progress and restores the persistent main menu.
 
 ## Pause and Resume Behavior
 
-The `/list_full` detail view can pause or resume a subscription. Pause marks the subscription as paused and removes it from the reminder index for its next billing date. Paused subscriptions remain visible but are excluded from reminders, automatic date advancement, and spending reports.
+The `/list` detail view can pause or resume a subscription. Pause marks the subscription as paused and removes it from the reminder index for its next billing date. Paused subscriptions remain visible but are excluded from reminders, automatic date advancement, and spending reports.
 
 Resume starts `resumeConversation`:
 - If the subscription is already active, the bot says so and exits.
@@ -109,11 +115,33 @@ The `/reminders` command lists subscriptions with upcoming renewals within the c
 - If no subscriptions are due within the window, replies "近期没有即将扣款的订阅。"
 Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. `/reminders` itself uses the compact `扣款日` list label.
 
-This is a single-shot command; no conversation or callback state is involved.
+Scheduled delivery starts at the beginning of the configured window and repeats once per user-local day through the billing date. The default three-day setting therefore sends on D-3, D-2, D-1, and D. Successful sends are deduplicated per subscription, billing date, and local reminder date; failed sends remain retryable in the current dispatch window.
+
+When Rich Messages are available, the result is a table with inline renewal and
+management actions. A Telegram API rejection falls back to equivalent plain
+text without losing the buttons.
 
 ## /settings Behavior
 
-`/settings` uses inline buttons for reminder enablement, reminder hour, timezone, and default currency. Timezone selection first shows the supported timezone list. The custom UTC offset page only contains offset presets not shown as first-page timezone labels, plus **其他** for free-form offsets such as `+8`, `-5`, or `+5:30`.
+`/settings` uses Chinese state labels and saves each change immediately. It
+covers report currency, reminder enablement, reminder hour, timezone, and
+**隐私与数据**. The privacy panel can export a JSON file or enter the existing
+double-confirmation permanent deletion flow.
+
+## Private-chat boundary
+
+The complete product is private-chat only. A guard runs before sequentialization,
+sessions, request context, and profile writes. Group/channel commands receive a
+deep-link button to private chat; legacy group callbacks show an alert. Neither
+path creates a session, reads subscription KV, or refreshes a profile.
+
+## Rich Message compatibility
+
+`/help`, `/reminders`, and `/report_text` use Bot API structured blocks and
+tables. Transactional add/edit/delete/settings panels remain ordinary editable
+messages. `sendRichOrPlain` catches Telegram API rejection, logs only the
+sanitized error type, and sends content-equivalent plain text with the same
+keyboard. Draft and ephemeral APIs are intentionally unused.
 
 ## Session Behavior on Cloudflare Workers
 
@@ -212,15 +240,19 @@ What **is** logged:
 
 2. **KV eventual consistency.** Session and subscription state are stored in KV, which is eventually consistent. `sequentialize` helps within the same running instance but does not make KV transactional.
 
-3. **Inline buttons on old `/list_full` messages.** After editing, pausing, resuming, or deleting a subscription, older list-manager messages can show old state. Clicking them triggers re-validation against KV, but the UI may be slightly misleading.
+3. **Multiple historical panels.** The actively edited panel is updated in
+   place, and expired panels are visibly disabled, but much older manager
+   messages can still show an earlier snapshot until clicked.
 
-4. **No batch operations.** `/list_full` supports one subscription at a time. There is no multi-select edit/delete flow.
+4. **No batch operations.** `/list` supports one subscription at a time. There is no multi-select edit/delete flow.
 
 5. **No undo.** Deletion is permanent. The confirmation step mitigates accidental clicks, but there is no trash bin or recovery.
 
 6. **Rate limiting is per-isolate.** The in-memory rate limiter resets when the isolate is recycled. This is acceptable for MVP but not a hard guarantee against abuse.
 
-7. **Fixed-cycle edit buttons do not need /cancel.** For fixed-cycle buttons, the edit saves immediately after selection. For Advanced interval text input, `/cancel` aborts before saving.
+7. **No undo for confirmed deletion.** Button styles and double confirmation
+   reduce accidental deletion, but a completed privacy deletion cannot be
+   reversed.
 
 ## Validation Messages
 

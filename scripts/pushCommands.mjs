@@ -3,15 +3,13 @@ import { resolve } from "node:path";
 
 const commands = [
   { command: "start", description: "开始使用" },
-  { command: "help", description: "查看帮助" },
+  { command: "menu", description: "打开主菜单" },
   { command: "add", description: "添加订阅" },
-  { command: "list", description: "查看订阅列表" },
-  { command: "list_full", description: "查看完整订阅列表" },
-  { command: "export", description: "导出数据" },
+  { command: "list", description: "管理订阅" },
   { command: "report", description: "查看支出报告" },
   { command: "reminders", description: "查看提醒" },
-  { command: "settings", description: "设置默认参数" },
-  { command: "delete_me", description: "删除我的数据" },
+  { command: "settings", description: "打开设置" },
+  { command: "help", description: "查看帮助" },
 ];
 
 function parseDotEnv(content) {
@@ -67,18 +65,27 @@ if (!botToken) {
   process.exit(1);
 }
 
-const response = await fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ commands }),
-});
-
-const result = await response.json();
-
-if (!response.ok || !result.ok) {
-  console.error("Failed to push Telegram bot commands.");
-  console.error(JSON.stringify(result, null, 2));
-  process.exit(1);
+async function callBotApi(method, body) {
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    console.error(`Telegram Bot API ${method} failed.`);
+    console.error(JSON.stringify(result, null, 2));
+    process.exit(1);
+  }
 }
 
-console.log(`Pushed ${commands.length} Telegram bot commands.`);
+// Remove the old default/global command list so group chats do not inherit it.
+await callBotApi("deleteMyCommands", {
+  scope: { type: "default" },
+});
+await callBotApi("setMyCommands", {
+  commands,
+  scope: { type: "all_private_chats" },
+});
+
+console.log(`Pushed ${commands.length} private-chat Telegram bot commands.`);

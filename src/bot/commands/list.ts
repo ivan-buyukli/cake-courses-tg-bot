@@ -12,6 +12,7 @@ import {
   buildListPageText,
   buildListPageKeyboard,
 } from "../keyboards/listManagerKeyboard.js";
+import { emptySubscriptionsKeyboard } from "../ui/navigation.js";
 
 const MAX_LIST_MESSAGE_LENGTH = 3900;
 
@@ -59,7 +60,7 @@ function buildListMessages(header: string, lines: string[]): string[] {
   return messages;
 }
 
-export async function listCommand(ctx: BotContext): Promise<void> {
+export async function listTextCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   const subs = await listSubscriptions(ctx);
@@ -69,7 +70,9 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   }
 
   if (subs.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。\n发送 /add 添加第一个订阅。");
+    await ctx.reply("你还没有添加任何订阅。", {
+      reply_markup: emptySubscriptionsKeyboard(),
+    });
     return;
   }
 
@@ -113,7 +116,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   });
 }
 
-export async function listFullCommand(ctx: BotContext): Promise<void> {
+export async function listCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   const subs = await listSubscriptions(ctx);
@@ -123,7 +126,9 @@ export async function listFullCommand(ctx: BotContext): Promise<void> {
   }
 
   if (subs.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。\n发送 /add 添加第一个订阅。");
+    await ctx.reply("你还没有添加任何订阅。", {
+      reply_markup: emptySubscriptionsKeyboard(),
+    });
     return;
   }
 
@@ -137,3 +142,5 @@ export async function listFullCommand(ctx: BotContext): Promise<void> {
     count: subs.length,
   });
 }
+
+export const listFullCommand = listCommand;

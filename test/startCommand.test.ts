@@ -87,9 +87,12 @@ describe("startCommand", () => {
 
     const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0][1];
-    expect(replyOptions.reply_markup.keyboard.flat()).toContainEqual({
-      text: MAIN_MENU_BUTTON_LABELS.list,
-    });
+    expect(replyOptions.reply_markup.keyboard.flat()).toContainEqual(
+      expect.objectContaining({
+        text: MAIN_MENU_BUTTON_LABELS.list,
+        style: "primary",
+      }),
+    );
   });
 
   it("sends a plain welcome when userKey is missing", async () => {

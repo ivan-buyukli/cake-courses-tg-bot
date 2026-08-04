@@ -15,10 +15,15 @@ import {
   buildDetailKeyboard,
   formatDetailText,
 } from "../keyboards/listManagerKeyboard.js";
+import { hideMainMenu, restoreMainMenu } from "../ui/conversationUi.js";
 
 interface ResumeConversationOptions {
   source?: "listManager";
   page?: number;
+  panel?: {
+    chatId: number;
+    messageId: number;
+  };
 }
 
 function isFromListManager(options?: ResumeConversationOptions): boolean {
@@ -33,6 +38,28 @@ async function replyWithListManagerDetail(
   await ctx.reply(formatDetailText(sub), {
     reply_markup: buildDetailKeyboard(sub, page),
   });
+}
+
+async function updateListManagerDetail(
+  ctx: BaseBotContext,
+  sub: Parameters<typeof formatDetailText>[0],
+  page: number,
+  panel?: { chatId: number; messageId: number },
+): Promise<void> {
+  if (!panel) {
+    await replyWithListManagerDetail(ctx, sub, page);
+    return;
+  }
+  try {
+    await ctx.api.editMessageText(
+      panel.chatId,
+      panel.messageId,
+      formatDetailText(sub),
+      { reply_markup: buildDetailKeyboard(sub, page) },
+    );
+  } catch {
+    await replyWithListManagerDetail(ctx, sub, page);
+  }
 }
 
 function retainedStatusLabels(sub: Subscription): string[] {
@@ -100,6 +127,7 @@ export async function resumeConversation(
 
   const userKey = ctxData.userKey;
   const encryptionKey = ctxData.encryptionKey;
+  await hideMainMenu(ctx, "正在恢复订阅。可随时发送 /cancel 或“取消”退出。");
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -112,14 +140,21 @@ export async function resumeConversation(
 
   if (!sub) {
     await ctx.reply("没有找到这个订阅，或它已被删除。");
+    await restoreMainMenu(ctx);
     return;
   }
 
   if (sub.status === "active") {
     await ctx.reply(`"${sub.name}" 已经是${formatStatus("active")}状态。`);
     if (isFromListManager(options)) {
-      await replyWithListManagerDetail(ctx, sub, options?.page ?? 0);
+      await updateListManagerDetail(
+        ctx,
+        sub,
+        options?.page ?? 0,
+        options?.panel,
+      );
     }
+    await restoreMainMenu(ctx);
     return;
   }
 
@@ -135,6 +170,7 @@ export async function resumeConversation(
   );
 
   if (!selectedDate) {
+    await restoreMainMenu(ctx);
     return;
   }
 
@@ -169,14 +205,21 @@ async function resumeWithDate(
 
   if (!resumed) {
     await ctx.reply("恢复失败，请稍后再试。");
+    await restoreMainMenu(ctx);
     return;
   }
 
   if (isFromListManager(options)) {
-    await ctx.reply(buildResumeSuccessMessage(resumed));
-    await replyWithListManagerDetail(ctx, resumed, options?.page ?? 0);
+    await updateListManagerDetail(
+      ctx,
+      resumed,
+      options?.page ?? 0,
+      options?.panel,
+    );
+    await restoreMainMenu(ctx, `✅ ${buildResumeSuccessMessage(resumed)}`);
     return;
   }
 
   await ctx.reply(buildResumeSuccessMessage(resumed));
+  await restoreMainMenu(ctx);
 }

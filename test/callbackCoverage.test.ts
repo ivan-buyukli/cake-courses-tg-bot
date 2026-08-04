@@ -270,8 +270,10 @@ describe("subscription callbacks", () => {
     for (const [callback, data] of callbacks) {
       const ctx = createCallbackContext(kv, data);
       await callback(ctx);
-      expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-        "没有找到这个订阅。",
+      expect(ctx.answerCallbackQuery).toHaveBeenCalledTimes(1);
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        expect.stringContaining("没有找到这个订阅"),
+        undefined,
       );
     }
   });

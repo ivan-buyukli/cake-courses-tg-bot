@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReportData } from "../src/services/reportService.js";
+import type {
+  SplitReportData,
+  TextReportSubscriptionItem,
+} from "../src/services/reportService.js";
 
 const resvgMock = vi.hoisted(() => ({
   async: vi.fn(),
@@ -7,45 +10,28 @@ const resvgMock = vi.hoisted(() => ({
   resvgFree: vi.fn(),
 }));
 
-vi.mock("@cf-wasm/resvg/workerd", () => ({
+const reportSvgMock = vi.hoisted(() => ({
+  buildReportOverviewSvg: vi.fn(),
+}));
+
+vi.mock("@cf-wasm/resvg/legacy/workerd", () => ({
   Resvg: {
     async: resvgMock.async,
   },
 }));
 
-import { renderReportPng } from "../src/utils/reportPng.js";
+vi.mock("../src/utils/reportSvg.js", () => ({
+  buildReportOverviewSvg: reportSvgMock.buildReportOverviewSvg,
+}));
 
-function report(overrides: Partial<ReportData> = {}): ReportData {
-  return {
-    title: "月均订阅成本",
-    totalLabel: "月均订阅成本",
-    chartTitle: "每日摊平成本",
-    chartSubtitle: "活跃自动续费订阅折算为月均后按 30 天摊平",
-    generatedAt: "2026-06-17T00:00:00.000Z",
-    baseCurrency: "CNY",
-    subscriptionCount: 1,
-    includedCount: 1,
-    convertedCount: 1,
-    totalBase: 12,
-    byCurrency: [{ currency: "USD", total: 12, subscriptionCount: 1 }],
-    dayDistribution: [
-      { day: 1, actualTotal: 12, monthlyEquivalentTotal: 12, actualCount: 1 },
-    ],
-    missingRateCurrencies: [],
-    excluded: {
-      noPrice: 0,
-      noCurrency: 0,
-      customCycle: 0,
-      trial: 0,
-      nonRenewing: 0,
-    },
-    ...overrides,
-  };
-}
+import { renderReportOverviewPng } from "../src/utils/reportPng.js";
 
-describe("renderReportPng", () => {
+describe("renderReportOverviewPng", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    reportSvgMock.buildReportOverviewSvg.mockResolvedValue(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780"/>',
+    );
     resvgMock.async.mockResolvedValue({
       render: () => ({
         asPng: () => new Uint8Array([1, 2, 3]),
@@ -55,16 +41,25 @@ describe("renderReportPng", () => {
     });
   });
 
-  it("renders report SVG through resvg and frees native handles", async () => {
-    const png = await renderReportPng(report());
+  it("renders the embedded-font overview through legacy resvg", async () => {
+    const report = {} as SplitReportData;
+    const upcomingItems: TextReportSubscriptionItem[] = [];
+
+    const png = await renderReportOverviewPng(report, upcomingItems);
 
     expect(Array.from(png)).toEqual([1, 2, 3]);
+    expect(reportSvgMock.buildReportOverviewSvg).toHaveBeenCalledWith(
+      report,
+      upcomingItems,
+    );
     expect(resvgMock.async).toHaveBeenCalledTimes(1);
     const [svg, options] = resvgMock.async.mock.calls[0];
-    expect(svg).toContain("月均订阅成本");
-    expect(options.fitTo).toEqual({ mode: "width", value: 1200 });
-    expect(options.font.defaultFontFamily).toBe("Noto Sans SC");
-    expect(options.font.fontBuffers).toHaveLength(12);
+    expect(svg).toContain('width="1200"');
+    expect(options).toEqual({
+      background: "#f8f7f2",
+      fitTo: { mode: "width", value: 1200 },
+    });
+    expect(options).not.toHaveProperty("font");
     expect(resvgMock.renderedFree).toHaveBeenCalledTimes(1);
     expect(resvgMock.resvgFree).toHaveBeenCalledTimes(1);
   });

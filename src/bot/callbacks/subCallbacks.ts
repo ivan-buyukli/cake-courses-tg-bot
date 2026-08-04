@@ -20,12 +20,16 @@ import {
   formatSubscriptionType,
 } from "../../utils/subscriptionFlags.js";
 
+const answeredCallbacks = new WeakSet<object>();
+
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
   text?: string,
 ): Promise<void> {
+  if (answeredCallbacks.has(ctx)) return;
   try {
     await ctx.answerCallbackQuery(text);
+    answeredCallbacks.add(ctx);
   } catch {
     // Ignore if answering fails (e.g., query too old)
   }
@@ -74,6 +78,7 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
@@ -117,6 +122,7 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
@@ -161,6 +167,7 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
@@ -207,6 +214,7 @@ export async function subPauseCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
@@ -219,6 +227,7 @@ export async function subPauseCallback(ctx: BotContext): Promise<void> {
 
     if (!sub) {
       await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
       return;
     }
 
@@ -275,6 +284,7 @@ export async function reminderRenewCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx, "正在更新…");
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
@@ -305,7 +315,7 @@ export async function reminderRenewCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "这个订阅无法自动计算下个周期。");
       await safeEditMessageText(
         ctx,
-        "这个订阅无法自动计算下个周期，请发送 /list_full 后在详情中手动更新日期。",
+        "这个订阅无法自动计算下个周期，请发送 /list 后在详情中手动更新日期。",
       );
       return;
     }

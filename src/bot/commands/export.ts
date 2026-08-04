@@ -1,14 +1,11 @@
-import { BotContext } from "../../types/context.js";
+import { InputFile } from "grammy";
+import type { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createPrivacyService } from "../../services/privacyService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
-
-// Telegram message text limit is 4096 UTF-16 code units.
-// We keep a conservative margin for the code block wrapper.
-const MAX_EXPORT_MESSAGE_LENGTH = 4000;
 
 export async function exportCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
@@ -34,26 +31,26 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
     ctx.env.ENCRYPTION_KEY,
   );
 
-  // Build JSON without internal identifiers
   const payload = JSON.stringify(exportData, null, 2);
+  const exportedAt = new Date(exportData.exportedAt);
+  const date = Number.isNaN(exportedAt.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : exportedAt.toISOString().slice(0, 10);
+  const filename = `subscription-export-${date}.json`;
 
-  if (payload.length > MAX_EXPORT_MESSAGE_LENGTH) {
-    await ctx.reply(
-      "导出内容太大，无法直接作为消息发送。\n" + "后续会补充文件上传导出支持。",
-    );
-    logger.info("Export too large for message", {
-      payloadLength: payload.length,
-    });
-    return;
+  if (ctx.chat) {
+    await ctx.api.sendChatAction(ctx.chat.id, "upload_document");
   }
+  await ctx.replyWithDocument(
+    new InputFile(new TextEncoder().encode(payload), filename),
+    {
+      caption:
+        "这是你的订阅数据副本。文件不包含 Telegram 用户 ID、存储键或加密密钥。",
+    },
+  );
 
-  // Send as a code block for easy copy-paste
-  await ctx.reply(`\`\`\`json\n${payload}\n\`\`\``, {
-    parse_mode: "MarkdownV2",
-  });
-
-  logger.info("Data exported", {
+  logger.info("Data exported as document", {
     subscriptionCount: exportData.subscriptions.length,
-    // Do not log the exported JSON or subscription details
+    payloadBytes: new TextEncoder().encode(payload).byteLength,
   });
 }

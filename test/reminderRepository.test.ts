@@ -122,12 +122,22 @@ describe("reminderRepository", () => {
     const kv = createMockKV();
     const repo = createReminderRepository(kv);
 
-    const alreadySent = await repo.hasSent("user-1", "sub-1", "2026-06-01");
+    const alreadySent = await repo.hasSent(
+      "user-1",
+      "sub-1",
+      "2026-06-04",
+      "2026-06-01",
+    );
     expect(alreadySent).toBe(false);
 
-    await repo.markSent("user-1", "sub-1", "2026-06-01");
+    await repo.markSent("user-1", "sub-1", "2026-06-04", "2026-06-01");
 
-    const nowSent = await repo.hasSent("user-1", "sub-1", "2026-06-01");
+    const nowSent = await repo.hasSent(
+      "user-1",
+      "sub-1",
+      "2026-06-04",
+      "2026-06-01",
+    );
     expect(nowSent).toBe(true);
   });
 
@@ -135,22 +145,35 @@ describe("reminderRepository", () => {
     const kv = createMockKV();
     const repo = createReminderRepository(kv);
 
-    await repo.markSent("user-1", "sub-1", "2026-06-01");
+    await repo.markSent("user-1", "sub-1", "2026-06-04", "2026-06-01");
 
     expect(
-      kv.putOptions.get("reminder:sent:user-1:sub-1:2026-06-01"),
+      kv.putOptions.get(
+        "reminder:sent:v2:user-1:sub-1:2026-06-04:2026-06-01",
+      ),
     ).toEqual({ expirationTtl: 60 * 60 * 24 * 45 });
   });
 
-  it("sent markers are keyed by userKey, subscriptionId, and date", async () => {
+  it("sent markers are keyed by user, subscription, billing date, and local reminder date", async () => {
     const kv = createMockKV();
     const repo = createReminderRepository(kv);
 
-    await repo.markSent("user-1", "sub-1", "2026-06-01");
+    await repo.markSent("user-1", "sub-1", "2026-06-04", "2026-06-01");
 
-    expect(await repo.hasSent("user-1", "sub-1", "2026-06-01")).toBe(true);
-    expect(await repo.hasSent("user-1", "sub-1", "2026-06-02")).toBe(false);
-    expect(await repo.hasSent("user-1", "sub-2", "2026-06-01")).toBe(false);
-    expect(await repo.hasSent("user-2", "sub-1", "2026-06-01")).toBe(false);
+    expect(
+      await repo.hasSent("user-1", "sub-1", "2026-06-04", "2026-06-01"),
+    ).toBe(true);
+    expect(
+      await repo.hasSent("user-1", "sub-1", "2026-06-04", "2026-06-02"),
+    ).toBe(false);
+    expect(
+      await repo.hasSent("user-1", "sub-1", "2026-07-04", "2026-06-01"),
+    ).toBe(false);
+    expect(
+      await repo.hasSent("user-1", "sub-2", "2026-06-04", "2026-06-01"),
+    ).toBe(false);
+    expect(
+      await repo.hasSent("user-2", "sub-1", "2026-06-04", "2026-06-01"),
+    ).toBe(false);
   });
 });

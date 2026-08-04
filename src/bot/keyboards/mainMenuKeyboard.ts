@@ -16,7 +16,7 @@ export const MAIN_MENU_BUTTON_LABELS: Record<MainMenuAction, string> = {
   list: "📋 管理订阅",
   report: "📊 支出报告",
   reminders: "⏰ 近期扣款",
-  settings: "⚙️ 提醒设置",
+  settings: "⚙️ 设置",
   help: "❓ 帮助",
 };
 
@@ -33,7 +33,9 @@ export function actionFromMainMenuText(
 export function mainMenuReplyKeyboard(): Keyboard {
   return new Keyboard()
     .text(MAIN_MENU_BUTTON_LABELS.add)
+    .primary()
     .text(MAIN_MENU_BUTTON_LABELS.list)
+    .primary()
     .row()
     .text(MAIN_MENU_BUTTON_LABELS.report)
     .text(MAIN_MENU_BUTTON_LABELS.reminders)

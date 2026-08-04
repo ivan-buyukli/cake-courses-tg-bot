@@ -17,51 +17,88 @@ vi.mock("../src/utils/reportFonts.js", async () => {
     );
   };
 
-  const REPORT_FONT_FAMILY = "Noto Sans SC";
   const fontSources = [
-    { data: readFont("noto-sans-sc-latin-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-106-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-109-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-110-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-112-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-113-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-114-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-115-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-116-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-117-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-118-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-119-400-normal.woff"), weight: 400 },
+    {
+      name: "Noto Sans SC Latin",
+      data: readFont("noto-sans-sc-latin-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 106",
+      data: readFont("noto-sans-sc-106-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 109",
+      data: readFont("noto-sans-sc-109-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 110",
+      data: readFont("noto-sans-sc-110-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 112",
+      data: readFont("noto-sans-sc-112-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 113",
+      data: readFont("noto-sans-sc-113-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 114",
+      data: readFont("noto-sans-sc-114-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 115",
+      data: readFont("noto-sans-sc-115-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 116",
+      data: readFont("noto-sans-sc-116-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 117",
+      data: readFont("noto-sans-sc-117-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 118",
+      data: readFont("noto-sans-sc-118-400-normal.woff"),
+      weight: 400,
+    },
+    {
+      name: "Noto Sans SC 119",
+      data: readFont("noto-sans-sc-119-400-normal.woff"),
+      weight: 400,
+    },
   ] as const;
-  const resvgFontSources = [
-    readFont("noto-sans-sc-latin-400-normal.woff2"),
-    readFont("noto-sans-sc-106-400-normal.woff2"),
-    readFont("noto-sans-sc-109-400-normal.woff2"),
-    readFont("noto-sans-sc-110-400-normal.woff2"),
-    readFont("noto-sans-sc-112-400-normal.woff2"),
-    readFont("noto-sans-sc-113-400-normal.woff2"),
-    readFont("noto-sans-sc-114-400-normal.woff2"),
-    readFont("noto-sans-sc-115-400-normal.woff2"),
-    readFont("noto-sans-sc-116-400-normal.woff2"),
-    readFont("noto-sans-sc-117-400-normal.woff2"),
-    readFont("noto-sans-sc-118-400-normal.woff2"),
-    readFont("noto-sans-sc-119-400-normal.woff2"),
-  ] as const;
+  const REPORT_FONT_FAMILY = fontSources.map((font) => font.name).join(", ");
 
   return {
     REPORT_FONT_FAMILY,
     REPORT_SATORI_FONTS: fontSources.map((font) => ({
-      name: REPORT_FONT_FAMILY,
+      name: font.name,
       data: font.data,
       weight: font.weight,
       style: "normal",
     })),
-    REPORT_RESVG_FONT_BUFFERS: resvgFontSources.map(
-      (font) => new Uint8Array(font),
-    ),
   };
 });
 
+import { Resvg } from "@cf-wasm/resvg/legacy/node";
+import satori from "satori";
 import { buildReportOverviewSvg } from "../src/utils/reportSvg.js";
+import {
+  REPORT_FONT_FAMILY,
+  REPORT_SATORI_FONTS,
+} from "../src/utils/reportFonts.js";
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
@@ -92,7 +129,39 @@ function report(overrides: Partial<ReportData> = {}): ReportData {
 }
 
 describe("buildReportOverviewSvg with real Satori", () => {
-  it("renders without Satori layout errors", async () => {
+  it("uses the font subsets as a glyph fallback chain for Chinese", async () => {
+    const characters = [..."订阅支出总览"];
+    const svg = await satori(
+      {
+        type: "div",
+        props: {
+          style: {
+            display: "flex",
+            fontFamily: REPORT_FONT_FAMILY,
+            fontSize: 40,
+          },
+          children: characters.map((character) => ({
+            type: "span",
+            props: { children: character },
+          })),
+        },
+      } as any,
+      {
+        width: 480,
+        height: 80,
+        embedFont: true,
+        fonts: REPORT_SATORI_FONTS,
+      },
+    );
+    const paths = [...svg.matchAll(/<path[^>]* d="([^"]+)"/g)].map(
+      (match) => match[1],
+    );
+
+    expect(paths).toHaveLength(characters.length);
+    expect(new Set(paths).size).toBe(characters.length);
+  });
+
+  it("embeds font paths and renders a real PNG with legacy resvg", async () => {
     const splitReport: SplitReportData = {
       generatedAt: "2026-06-17T00:00:00.000Z",
       baseCurrency: "CNY",
@@ -110,7 +179,7 @@ describe("buildReportOverviewSvg with real Satori", () => {
 
     const svg = await buildReportOverviewSvg(splitReport, [
       {
-        name: "Private Service",
+        name: "中文订阅 · Private Service",
         amount: 10,
         currency: "USD",
         convertedAmount: 72,
@@ -120,8 +189,34 @@ describe("buildReportOverviewSvg with real Satori", () => {
 
     expect(svg).toContain("<svg");
     expect(svg).toContain('viewBox="0 0 1200 780"');
-    expect(svg).toContain('font-family="noto sans sc"');
-    expect(svg).toContain(">订</text>");
-    expect(svg).toContain(">览</text>");
+    expect(svg).toContain("<path");
+    expect(svg).not.toContain("<text");
+
+    const resvg = await Resvg.async(svg, {
+      background: "#f8f7f2",
+      fitTo: { mode: "width", value: 1200 },
+    });
+
+    try {
+      const rendered = resvg.render();
+      try {
+        const png = rendered.asPng();
+        const pngHeader = [137, 80, 78, 71, 13, 10, 26, 10];
+        const dataView = new DataView(
+          png.buffer,
+          png.byteOffset,
+          png.byteLength,
+        );
+
+        expect(Array.from(png.slice(0, 8))).toEqual(pngHeader);
+        expect(dataView.getUint32(16)).toBe(1200);
+        expect(dataView.getUint32(20)).toBe(780);
+        expect(png.byteLength).toBeGreaterThan(1_000);
+      } finally {
+        rendered.free();
+      }
+    } finally {
+      resvg.free();
+    }
   });
 });

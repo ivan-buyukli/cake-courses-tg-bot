@@ -14,7 +14,7 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 ### Bot Layer (`src/bot/`)
 
 - `createBot.ts`: Configures the grammY bot with middleware, commands, conversations, and callbacks.
-- `commands/`: Full command handlers (`/start`, `/help`, `/add`, `/list`, `/list_full`, `/export`, `/report`, `/report_text`, `/reminders`, `/settings`, `/delete_me`, `/diagnosis`, `/admin_reminders`, `/debug_me`).
+- `commands/`: Full command handlers (`/start`, `/menu`, `/cancel`, `/help`, `/add`, `/list`, `/list_full`, `/list_text`, `/export`, `/report`, `/report_text`, `/reminders`, `/settings`, `/delete_me`, `/diagnosis`, `/admin_reminders`, `/debug_me`).
 - `conversations/`: Multi-step interactive flows (`addConversation`, `editFieldConversation`, `editCycleConversation`, `resumeConversation`).
 - `callbacks/`: Inline keyboard callback handlers (`sub`, `edit`, `delete`, `privacy`, list manager).
 - `keyboards/`: Reusable keyboard builders for inline buttons.
@@ -24,14 +24,14 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 ### Handlers (`src/handlers/`)
 
 - `webhook.ts`: Validates Telegram secret token and passes updates to grammY.
-- `scheduled.ts`: Daily cron handler that sends reminders for the configured date window and advances eligible past-due subscriptions.
+- `scheduled.ts`: Cron handler that sends at most one reminder per user-local day from the configured window start through the billing date, then advances eligible past-due subscriptions.
 - `health.ts`: Simple health check endpoint.
 
 ### Services (`src/services/`)
 
 Business logic layer:
 - `subscriptionService.ts`: Encrypts/decrypts subscription payloads, manages CRUD, resolves IDs (short/prefix/UUID), pauses/resumes subscriptions, advances eligible past-due dates, and coordinates reminder index updates.
-- `reminderService.ts`: Processes daily reminders: loads entries, skips stale/paused records, decrypts subscriptions, sends Telegram messages via `telegramService`, and marks reminders as sent.
+- `reminderService.ts`: Processes reminders: loads entries, skips stale/paused records, decrypts subscriptions, sends Telegram messages via `telegramService`, and records sent markers by billing date and user-local reminder date.
 - `reportService.ts`: Builds report data (monthly subscription run rate, upcoming 30-day due spending, future 12-month projected spending, per-currency totals, day/month distributions) and formats text fallback/detail reports.
 - `exportService.ts`: Aggregates user data for export.
 - `privacyService.ts`: Handles data export and full deletion.

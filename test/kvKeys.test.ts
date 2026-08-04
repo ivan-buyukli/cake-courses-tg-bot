@@ -33,9 +33,7 @@ describe("kvKeys", () => {
   });
 
   it("reminderDatePrefix returns correct prefix", () => {
-    expect(reminderDatePrefix("2026-06-01")).toBe(
-      "reminders:date:2026-06-01:",
-    );
+    expect(reminderDatePrefix("2026-06-01")).toBe("reminders:date:2026-06-01:");
   });
 
   it("reminderDateEntry returns correct key", () => {
@@ -65,8 +63,10 @@ describe("kvKeys", () => {
   });
 
   it("reminderSent returns correct key", () => {
-    expect(reminderSent("user1", "sub1", "2026-06-01")).toBe(
-      "reminder:sent:user1:sub1:2026-06-01",
+    expect(
+      reminderSent("user1", "sub1", "2026-06-04", "2026-06-01"),
+    ).toBe(
+      "reminder:sent:v2:user1:sub1:2026-06-04:2026-06-01",
     );
   });
 });

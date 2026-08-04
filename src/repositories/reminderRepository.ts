@@ -30,11 +30,13 @@ export interface ReminderRepository {
     userKey: string,
     subscriptionId: string,
     billingDate: string,
+    localReminderDate: string,
   ): Promise<boolean>;
   markSent(
     userKey: string,
     subscriptionId: string,
     billingDate: string,
+    localReminderDate: string,
   ): Promise<void>;
 }
 
@@ -100,8 +102,14 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
       userKey: string,
       subscriptionId: string,
       billingDate: string,
+      localReminderDate: string,
     ): Promise<boolean> {
-      const key = reminderSent(userKey, subscriptionId, billingDate);
+      const key = reminderSent(
+        userKey,
+        subscriptionId,
+        billingDate,
+        localReminderDate,
+      );
       const data = await kv.get(key);
       return data !== null;
     },
@@ -110,8 +118,14 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
       userKey: string,
       subscriptionId: string,
       billingDate: string,
+      localReminderDate: string,
     ): Promise<void> {
-      const key = reminderSent(userKey, subscriptionId, billingDate);
+      const key = reminderSent(
+        userKey,
+        subscriptionId,
+        billingDate,
+        localReminderDate,
+      );
       await kv.put(key, "1", { expirationTtl: SENT_MARKER_TTL_SECONDS });
     },
   };

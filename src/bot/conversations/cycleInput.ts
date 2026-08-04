@@ -27,6 +27,7 @@ function isBillingCycle(value: string | null): value is BillingCycle {
 
 export function cycleKeyboard(
   callbackData: (cycle: BillingCycle) => string,
+  cancelData = "cycle:cancel",
 ): InlineKeyboard {
   return new InlineKeyboard()
     .text("每周", callbackData("weekly"))
@@ -36,7 +37,9 @@ export function cycleKeyboard(
     .text("每年", callbackData("yearly"))
     .row()
     .text("自定义", callbackData("custom"))
-    .text("高级间隔", callbackData("interval"));
+    .text("高级间隔", callbackData("interval"))
+    .row()
+    .text("取消", cancelData);
 }
 
 function intervalKeyboard(): InlineKeyboard {
@@ -79,22 +82,44 @@ export async function collectCycleInput(
     callbackData,
     parseCycle,
     invalidSelectionMessage,
-    restartHint,
+    cancelData = "cycle:cancel",
   }: {
     prompt?: string;
     callbackPattern: RegExp;
     callbackData: (cycle: BillingCycle) => string;
     parseCycle: (callbackData: string) => string | null;
     invalidSelectionMessage: string;
-    restartHint: string;
+    cancelData?: string;
   },
 ): Promise<CycleSelection | null> {
   while (true) {
     await ctx.reply(prompt, {
-      reply_markup: cycleKeyboard(callbackData),
+      reply_markup: cycleKeyboard(callbackData, cancelData),
     });
-    const cycleCtx = await conversation.waitForCallbackQuery(callbackPattern);
-    const selectedCycle = parseCycle(cycleCtx.callbackQuery.data);
+    const cycleCtx = await conversation.wait();
+    if (cycleCtx.message?.text) {
+      if (isCancelInput(cycleCtx.message.text)) {
+        await ctx.reply("已取消。");
+        return null;
+      }
+      await ctx.reply("请点击按钮选择扣款周期，或发送 /cancel 退出。");
+      continue;
+    }
+    const cycleCallbackData = cycleCtx.callbackQuery?.data;
+    if (!cycleCallbackData || !callbackPattern.test(cycleCallbackData)) {
+      continue;
+    }
+    if (cycleCallbackData === cancelData) {
+      await cycleCtx.answerCallbackQuery();
+      try {
+        await cycleCtx.deleteMessage();
+      } catch {
+        // The callback message may already be gone.
+      }
+      await ctx.reply("已取消。");
+      return null;
+    }
+    const selectedCycle = parseCycle(cycleCallbackData);
     if (!isBillingCycle(selectedCycle)) {
       await ctx.reply(invalidSelectionMessage);
       return null;
@@ -114,11 +139,21 @@ export async function collectCycleInput(
       await ctx.reply("请选择高级间隔，或点“其他”输入自定义间隔。", {
         reply_markup: intervalKeyboard(),
       });
-      const intervalChoiceCtx =
-        await conversation.waitForCallbackQuery(/^cycleint:/);
-      const parsedInterval = parseCycleIntervalCallbackData(
-        intervalChoiceCtx.callbackQuery.data,
-      );
+      const intervalChoiceCtx = await conversation.wait();
+      if (intervalChoiceCtx.message?.text) {
+        if (isCancelInput(intervalChoiceCtx.message.text)) {
+          await ctx.reply("已取消。");
+          return null;
+        }
+        await ctx.reply("请点击按钮选择高级间隔，或发送 /cancel 退出。");
+        continue;
+      }
+      const intervalCallbackData = intervalChoiceCtx.callbackQuery?.data;
+      if (!intervalCallbackData?.startsWith("cycleint:")) {
+        continue;
+      }
+      const parsedInterval =
+        parseCycleIntervalCallbackData(intervalCallbackData);
 
       if (!parsedInterval) {
         await intervalChoiceCtx.answerCallbackQuery("无效的间隔选择。");
@@ -145,7 +180,7 @@ export async function collectCycleInput(
         const selection = parseIntervalSelection(parsedInterval.value);
         if (!selection) {
           await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
-          return null;
+          continue;
         }
         return selection;
       }
@@ -166,13 +201,13 @@ export async function collectCycleInput(
           const selection = parseIntervalSelection(intervalText);
           if (!selection) {
             await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
-            return null;
+            continue;
           }
           return selection;
         } catch (err) {
           if (err instanceof ValidationError) {
-            await ctx.reply(err.message + restartHint);
-            return null;
+            await ctx.reply(err.message + "\n请在当前步骤重新输入。");
+            continue;
           }
           throw err;
         }

@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ReportData, SplitReportData } from "../src/services/reportService.js";
+import type {
+  ReportData,
+  SplitReportData,
+} from "../src/services/reportService.js";
 
 vi.mock("satori", () => ({
   default: vi.fn(async (element) => JSON.stringify(element)),
 }));
 
-import { buildReportOverviewSvg, buildReportSvg } from "../src/utils/reportSvg.js";
+import {
+  buildReportOverviewSvg,
+  buildReportSvg,
+} from "../src/utils/reportSvg.js";
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
@@ -103,7 +109,12 @@ describe("buildReportSvg", () => {
         totalBase: 80,
         baseCurrency: "CNY",
         dayDistribution: [
-          { day: 3, actualTotal: 80, monthlyEquivalentTotal: 0, actualCount: 1 },
+          {
+            day: 3,
+            actualTotal: 80,
+            monthlyEquivalentTotal: 0,
+            actualCount: 1,
+          },
         ],
       }),
       yearlyProjection: report({

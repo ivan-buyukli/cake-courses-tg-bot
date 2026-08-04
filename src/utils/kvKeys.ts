@@ -49,6 +49,7 @@ export function reminderSent(
   userKey: string,
   subId: string,
   billingDate: string,
+  localReminderDate: string,
 ): string {
-  return `reminder:sent:${userKey}:${subId}:${billingDate}`;
+  return `reminder:sent:v2:${userKey}:${subId}:${billingDate}:${localReminderDate}`;
 }

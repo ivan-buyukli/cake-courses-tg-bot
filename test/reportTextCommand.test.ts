@@ -114,7 +114,8 @@ describe("reportTextCommand", () => {
     await reportTextCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
+      "你还没有添加任何订阅。",
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 

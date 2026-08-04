@@ -70,7 +70,7 @@ function recordTelegramApi(
   sentMessages: TelegramPayload[],
 ): void {
   bot.api.config.use(async (_prev, method, payload) => {
-    if (method === "sendMessage") {
+    if (method === "sendMessage" || method === "sendRichMessage") {
       sentMessages.push(payload as TelegramPayload);
       return {
         ok: true,
@@ -137,10 +137,10 @@ describe("bot command integration", () => {
     await bot.handleUpdate(messageUpdate(2, userId, "/reminders"));
 
     expect(
-      sentMessages.some((msg) => String(msg.text).includes("近期扣款订阅")),
+      sentMessages.some((msg) => JSON.stringify(msg).includes("近期扣款")),
     ).toBe(true);
     expect(
-      sentMessages.some((msg) => String(msg.text).includes("Netflix")),
+      sentMessages.some((msg) => JSON.stringify(msg).includes("Netflix")),
     ).toBe(true);
     expect(
       sentMessages.some((msg) => String(msg.text).includes("123456789")),

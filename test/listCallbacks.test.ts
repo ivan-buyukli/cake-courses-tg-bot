@@ -58,7 +58,11 @@ function createListCallbackContext(
     },
     callbackQuery: {
       data,
-      message: options?.messageDate ? { date: options.messageDate } : undefined,
+      message: {
+        date: options?.messageDate ?? Math.floor(Date.now() / 1000),
+        chat: { id: 123, type: "private" },
+        message_id: 99,
+      },
     },
     answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
     editMessageReplyMarkup,
@@ -92,38 +96,39 @@ function keyboardButtons(
 }
 
 describe("list manager callbacks", () => {
-  it("hides the old panel keyboard before entering text field editing", async () => {
+  it("keeps the source panel and passes its location into text editing", async () => {
     const ctx = createListCallbackContext("list:ef:name:sub-1:2");
 
     await listEditFieldCallback(ctx as any);
 
     expect(ctx.answerCallbackQuery).toHaveBeenCalledTimes(1);
-    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledWith({
-      reply_markup: undefined,
-    });
+    expect(ctx.editMessageReplyMarkup).not.toHaveBeenCalled();
     expect(ctx.conversation.enter).toHaveBeenCalledWith(
       "editField",
       "sub-1",
       "name",
-      { source: "listManager", page: 2 },
+      {
+        source: "listManager",
+        page: 2,
+        panel: { chatId: 123, messageId: 99 },
+      },
     );
   });
 
-  it("hides the old panel keyboard before entering cycle editing", async () => {
+  it("passes the source panel into cycle editing", async () => {
     const ctx = createListCallbackContext("list:ef:cycle:sub-1:1");
 
     await listEditFieldCallback(ctx as any);
 
-    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledWith({
-      reply_markup: undefined,
-    });
+    expect(ctx.editMessageReplyMarkup).not.toHaveBeenCalled();
     expect(ctx.conversation.enter).toHaveBeenCalledWith("editCycle", "sub-1", {
       source: "listManager",
       page: 1,
+      panel: { chatId: 123, messageId: 99 },
     });
   });
 
-  it("enters editing even when hiding the old panel keyboard fails", async () => {
+  it("enters editing without mutating the source panel first", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const ctx = createListCallbackContext("list:ef:price:sub-1:0", {
       rejectHide: true,
@@ -131,31 +136,32 @@ describe("list manager callbacks", () => {
 
     await listEditFieldCallback(ctx as any);
 
-    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledWith({
-      reply_markup: undefined,
-    });
+    expect(ctx.editMessageReplyMarkup).not.toHaveBeenCalled();
     expect(ctx.conversation.enter).toHaveBeenCalledWith(
       "editField",
       "sub-1",
       "price",
-      { source: "listManager", page: 0 },
+      {
+        source: "listManager",
+        page: 0,
+        panel: { chatId: 123, messageId: 99 },
+      },
     );
 
     warnSpy.mockRestore();
   });
 
-  it("hides the old panel keyboard before entering resume flow", async () => {
+  it("passes the source panel into the resume flow", async () => {
     const ctx = createListCallbackContext("list:resume:sub-1:3");
 
     await listResumeCallback(ctx as any);
 
     expect(ctx.answerCallbackQuery).toHaveBeenCalledTimes(1);
-    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledWith({
-      reply_markup: undefined,
-    });
+    expect(ctx.editMessageReplyMarkup).not.toHaveBeenCalled();
     expect(ctx.conversation.enter).toHaveBeenCalledWith("resume", "sub-1", {
       source: "listManager",
       page: 3,
+      panel: { chatId: 123, messageId: 99 },
     });
   });
 
@@ -186,7 +192,7 @@ describe("list manager callbacks", () => {
 
     const updated = await service.get("user-key", "sub-1", VALID_KEY);
     expect(updated!.isTrial).toBe(true);
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已标记为体验。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(undefined);
     expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
   });
 
@@ -219,7 +225,7 @@ describe("list manager callbacks", () => {
 
     const updated = await service.get("user-key", "sub-1", VALID_KEY);
     expect(updated!.autoRenew).toBe(false);
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已关闭自动续费。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(undefined);
     expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
   });
 });
@@ -252,8 +258,16 @@ describe("list manager keyboards", () => {
 
     expect(keyboardButtons(keyboard)).toEqual(
       expect.arrayContaining([
-        { text: "✏️ 编辑", callback_data: "list:edit:sub-1:0" },
-        { text: "🗑 删除", callback_data: "list:del:sub-1:0" },
+        expect.objectContaining({
+          text: "✏️ 编辑",
+          callback_data: "list:edit:sub-1:0",
+          style: "primary",
+        }),
+        expect.objectContaining({
+          text: "🗑 删除",
+          callback_data: "list:del:sub-1:0",
+          style: "danger",
+        }),
         { text: "⏸ 暂停", callback_data: "list:pause:sub-1:0" },
         { text: "标记体验", callback_data: "list:ef:trial:sub-1:0" },
         {
@@ -353,11 +367,11 @@ describe("list panel age check", () => {
     await listPageCallback(ctx as any);
 
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      "这个列表面板已过期，请发送 /list_full 重新打开。",
+      "这个管理面板已过期，请重新打开。",
     );
   });
 
-  it("old panel disables keyboard best-effort", async () => {
+  it("old panel is replaced with a restart action", async () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const ctx = createListCallbackContext("list:page:0", {
       messageDate: nowSeconds - 3700,
@@ -365,8 +379,9 @@ describe("list panel age check", () => {
 
     await listPageCallback(ctx as any);
 
-    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledWith({
-      reply_markup: undefined,
-    });
+    expect(ctx.editMessageText).toHaveBeenCalledWith(
+      expect.stringContaining("管理面板已过期"),
+      expect.objectContaining({ reply_markup: expect.anything() }),
+    );
   });
 });

@@ -55,6 +55,10 @@ function createMockContext(
     },
     userKey: "user-key",
     requestId: "request-id",
+    chat: { id: 123, type: "private" },
+    api: {
+      sendChatAction: vi.fn().mockResolvedValue(undefined),
+    },
     reply: vi.fn(),
     replyWithPhoto: vi.fn(),
     ...overrides,
@@ -124,7 +128,8 @@ describe("reportCommand", () => {
     await reportCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
+      "你还没有添加任何订阅。",
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
     expect(renderReportOverviewPngMock).not.toHaveBeenCalled();
     expect(ctx.replyWithPhoto).not.toHaveBeenCalled();
@@ -140,9 +145,14 @@ describe("reportCommand", () => {
 
     expect(renderReportOverviewPngMock).toHaveBeenCalledTimes(1);
     expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(1);
-    expect(ctx.replyWithPhoto).toHaveBeenCalledWith(expect.any(InputFile), {
-      caption: "订阅支出总览。发送 /report_text 查看完整明细。",
-    });
+    expect(ctx.api.sendChatAction).toHaveBeenCalledWith(123, "upload_photo");
+    expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+      expect.any(InputFile),
+      expect.objectContaining({
+        caption: "订阅支出总览。发送 /report_text 查看完整明细。",
+        reply_markup: expect.anything(),
+      }),
+    );
     expect(ctx.reply).not.toHaveBeenCalled();
   });
 

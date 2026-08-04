@@ -9,7 +9,6 @@ import {
   isAutoRenewing,
   isTrialSubscription,
 } from "../../utils/subscriptionFlags.js";
-import { binaryActionKeyboard } from "./confirmationKeyboard.js";
 import { editableFieldsKeyboard } from "./editFields.js";
 
 export const LIST_PAGE_SIZE = 8;
@@ -96,7 +95,9 @@ export function buildDetailKeyboard(
 
   return new InlineKeyboard()
     .text("✏️ 编辑", `list:edit:${sub.id}:${page}`)
+    .primary()
     .text("🗑 删除", `list:del:${sub.id}:${page}`)
+    .danger()
     .row()
     .add(statusButton)
     .text(trialLabel, `list:ef:trial:${sub.id}:${page}`)
@@ -123,9 +124,8 @@ export function buildDeleteConfirmKeyboard(
   subId: string,
   page: number,
 ): InlineKeyboard {
-  return binaryActionKeyboard({
-    confirmLabel: "✅ 确认删除",
-    confirmData: `list:delok:${subId}:${page}`,
-    cancelData: `list:delno:${subId}:${page}`,
-  });
+  return new InlineKeyboard()
+    .text("🗑 确认删除", `list:delok:${subId}:${page}`)
+    .danger()
+    .text("❌ 取消", `list:delno:${subId}:${page}`);
 }

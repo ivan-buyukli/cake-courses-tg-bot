@@ -65,8 +65,7 @@ export function buildReportOverviewSvg(
   report: SplitReportData,
   upcomingItems: TextReportSubscriptionItem[] = [],
 ): Promise<string> {
-  const referenceDate =
-    report.referenceDate ?? report.generatedAt.slice(0, 10);
+  const referenceDate = report.referenceDate ?? report.generatedAt.slice(0, 10);
   const missingCurrencies = Array.from(
     new Set([
       ...report.currentMonthly.missingRateCurrencies,
@@ -85,12 +84,12 @@ export function buildReportOverviewSvg(
     monthDistribution.length > 0
       ? report.yearlyProjection.totalBase / monthDistribution.length
       : 0;
-  const peakDue = report.currentMonthDue.dayDistribution.reduce<
-    ReportDayDistribution | null
-  >(
-    (peak, item) => (item.actualTotal > (peak?.actualTotal ?? 0) ? item : peak),
-    null,
-  );
+  const peakDue =
+    report.currentMonthDue.dayDistribution.reduce<ReportDayDistribution | null>(
+      (peak, item) =>
+        item.actualTotal > (peak?.actualTotal ?? 0) ? item : peak,
+      null,
+    );
 
   return buildSatoriSvg(
     h(
@@ -555,7 +554,7 @@ async function buildSatoriSvg(
   const svg = await satori(element as any, {
     width: WIDTH,
     height,
-    embedFont: false,
+    embedFont: true,
     fonts: REPORT_SATORI_FONTS,
   });
 
@@ -578,7 +577,14 @@ function overviewMetricCard(
       ),
       h(
         "div",
-        { style: { display: "flex", marginTop: 4, fontSize: 30, fontWeight: 400 } },
+        {
+          style: {
+            display: "flex",
+            marginTop: 4,
+            fontSize: 30,
+            fontWeight: 400,
+          },
+        },
         value,
       ),
       h(
@@ -603,7 +609,11 @@ function overviewSectionTitle(title: string, note?: string): SatoriElement {
   return h(
     "div",
     { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
-    h("div", { style: { display: "flex", fontSize: 20, fontWeight: 400 } }, title),
+    h(
+      "div",
+      { style: { display: "flex", fontSize: 20, fontWeight: 400 } },
+      title,
+    ),
     note
       ? h(
           "div",
@@ -728,7 +738,14 @@ function overviewUpcomingRow(
     },
     h(
       "div",
-      { style: { display: "flex", width: 56, color: COLORS.muted, fontSize: 13 } },
+      {
+        style: {
+          display: "flex",
+          width: 56,
+          color: COLORS.muted,
+          fontSize: 13,
+        },
+      },
       shortBillingDate(item.billingDate),
     ),
     h(
@@ -794,9 +811,7 @@ function overviewDueChartNode(
   const labeledDays = new Set(
     (nonZero.length <= 6
       ? nonZero
-      : [...nonZero]
-          .sort((a, b) => b.actualTotal - a.actualTotal)
-          .slice(0, 5)
+      : [...nonZero].sort((a, b) => b.actualTotal - a.actualTotal).slice(0, 5)
     ).map((item) => item.day),
   );
 
@@ -833,10 +848,7 @@ function overviewDueChartNode(
               left: clampLabelLeft(bar.centerX, 44, innerWidth),
               width: 44,
               bottom:
-                axisHeight +
-                bar.height +
-                3 +
-                (item.day % 2) * labelRowHeight,
+                axisHeight + bar.height + 3 + (item.day % 2) * labelRowHeight,
               display: "flex",
               justifyContent: "center",
               fontSize: 11,
@@ -1051,8 +1063,7 @@ function currencySymbol(currency: string): string {
       style: "currency",
       currency: currency.toUpperCase(),
     }).formatToParts(0);
-    const symbol =
-      parts.find((part) => part.type === "currency")?.value ?? "";
+    const symbol = parts.find((part) => part.type === "currency")?.value ?? "";
     return symbol.replace(/^[A-Z]+/, "");
   } catch {
     return "";

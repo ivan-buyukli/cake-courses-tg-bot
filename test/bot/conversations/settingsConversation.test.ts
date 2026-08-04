@@ -22,11 +22,11 @@ describe("settingsConversation", () => {
       const buttons = kb.inline_keyboard.flat();
       const texts = buttons.map((b) => b.text);
 
-      expect(texts.some((t) => t.includes("默认币种"))).toBe(true);
+      expect(texts.some((t) => t.includes("报告币种"))).toBe(true);
       expect(texts.some((t) => t.includes("提醒"))).toBe(true);
       expect(texts.some((t) => t.includes("时间"))).toBe(true);
       expect(texts.some((t) => t.includes("时区"))).toBe(true);
-      expect(texts).toContain("完成");
+      expect(texts).toContain("✅ 完成");
     });
 
     it("shows ON when reminders are enabled", () => {
@@ -37,7 +37,7 @@ describe("settingsConversation", () => {
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
       const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
-      expect(reminderBtn?.text).toContain("ON");
+      expect(reminderBtn?.text).toContain("开启");
     });
 
     it("shows OFF when reminders are disabled", () => {
@@ -48,7 +48,7 @@ describe("settingsConversation", () => {
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
       const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
-      expect(reminderBtn?.text).toContain("OFF");
+      expect(reminderBtn?.text).toContain("关闭");
     });
 
     it("shows current hour in HH:00 format", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { InputFile } from "grammy";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { exportCommand } from "../src/bot/commands/export.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
@@ -48,7 +49,12 @@ function createContext(
     userKey: "user-key",
     requestId: "request-id",
     msg: { text },
+    chat: { id: 123, type: "private" },
+    api: {
+      sendChatAction: vi.fn().mockResolvedValue(undefined),
+    },
     reply: vi.fn(),
+    replyWithDocument: vi.fn().mockResolvedValue(undefined),
     conversation: {
       enter: vi.fn().mockResolvedValue(undefined),
     },
@@ -93,27 +99,34 @@ describe("exportCommand", () => {
     expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
   });
 
-  it("exports subscriptions as Markdown JSON without internal identifiers", async () => {
+  it("exports subscriptions as a JSON document without internal identifiers", async () => {
     const kv = createMockKV();
     await seedSubscription(kv, createSub({ id: "sub-export" }));
     const ctx = createContext(kv, "/export");
 
     await exportCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledTimes(1);
-    const [text, options] = (ctx.reply as ReturnType<typeof vi.fn>).mock
-      .calls[0];
-    expect(text).toContain("```json");
+    expect(ctx.replyWithDocument).toHaveBeenCalledTimes(1);
+    const [file, options] = (ctx.replyWithDocument as ReturnType<typeof vi.fn>)
+      .mock.calls[0] as [InputFile, { caption: string }];
+    expect(file).toBeInstanceOf(InputFile);
+    expect(file.filename).toMatch(
+      /^subscription-export-\d{4}-\d{2}-\d{2}\.json$/,
+    );
+    const raw = await file.toRaw();
+    expect(raw).toBeInstanceOf(Uint8Array);
+    const text = new TextDecoder().decode(raw as Uint8Array);
     expect(text).toContain('"version": 2');
     expect(text).toContain('"name": "Netflix"');
     expect(text).not.toContain("user-key");
     expect(text).not.toContain("userKey");
     expect(text).not.toContain("encryptedPayload");
     expect(text).not.toContain("123456789");
-    expect(options).toEqual({ parse_mode: "MarkdownV2" });
+    expect(options.caption).toContain("不包含 Telegram 用户 ID");
+    expect(ctx.api.sendChatAction).toHaveBeenCalledWith(123, "upload_document");
   });
 
-  it("reports when the export is too large for a Telegram message", async () => {
+  it("exports payloads larger than the Telegram text limit as a file", async () => {
     const kv = createMockKV();
     for (let index = 0; index < 35; index += 1) {
       await seedSubscription(
@@ -129,7 +142,10 @@ describe("exportCommand", () => {
 
     await exportCommand(ctx);
 
-    const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("导出内容太大");
+    expect(ctx.replyWithDocument).toHaveBeenCalledTimes(1);
+    const [file] = (ctx.replyWithDocument as ReturnType<typeof vi.fn>).mock
+      .calls[0] as [InputFile];
+    const raw = await file.toRaw();
+    expect((raw as Uint8Array).byteLength).toBeGreaterThan(4000);
   });
 });

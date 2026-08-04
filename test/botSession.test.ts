@@ -191,7 +191,7 @@ describe("createBot session configuration", () => {
     expect(sessionWritten).toBe(false);
   });
 
-  it("reaches downstream middleware even when from.id is missing", async () => {
+  it("stops group and channel commands before downstream middleware", async () => {
     const env = createMockEnv();
     const bot = createBot(env);
 
@@ -221,6 +221,6 @@ describe("createBot session configuration", () => {
       },
     });
 
-    expect(downstreamReached).toBe(true);
+    expect(downstreamReached).toBe(false);
   });
 });

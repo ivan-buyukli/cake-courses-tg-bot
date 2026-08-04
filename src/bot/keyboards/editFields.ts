@@ -23,7 +23,7 @@ export function editableFieldsKeyboard({
   const keyboard = new InlineKeyboard();
 
   EDITABLE_FIELDS.forEach(({ field, label }, index) => {
-    keyboard.text(label, callbackData(field));
+    keyboard.text(label, callbackData(field)).primary();
     if (index % 2 === 1) keyboard.row();
   });
 

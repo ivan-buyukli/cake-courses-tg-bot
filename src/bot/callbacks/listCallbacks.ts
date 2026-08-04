@@ -15,19 +15,25 @@ import {
 } from "../keyboards/listManagerKeyboard.js";
 import type { Subscription } from "../../models/subscription.js";
 import { InlineKeyboard } from "grammy";
+import {
+  emptySubscriptionsKeyboard,
+  expiredPanelKeyboard,
+} from "../ui/navigation.js";
 
 type Logger = ReturnType<typeof createLogger>;
+const answeredCallbacks = new WeakSet<object>();
 
 const PANEL_MAX_AGE_SECONDS = 3600;
-const EXPIRED_PANEL_MESSAGE =
-  "这个列表面板已过期，请发送 /list_full 重新打开。";
+const EXPIRED_PANEL_MESSAGE = "这个管理面板已过期，请重新打开。";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
   text?: string,
 ): Promise<void> {
+  if (answeredCallbacks.has(ctx)) return;
   try {
     await ctx.answerCallbackQuery(text);
+    answeredCallbacks.add(ctx);
   } catch {
     // Ignore if answering fails (e.g., query too old)
   }
@@ -45,19 +51,6 @@ async function safeEditMessageText(
   }
 }
 
-async function disableCurrentInlineKeyboard(
-  ctx: BotContext,
-  logger: Logger,
-): Promise<void> {
-  try {
-    await ctx.editMessageReplyMarkup({ reply_markup: undefined });
-  } catch (error) {
-    logger.warn("Failed to disable list manager keyboard", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
 function isPanelExpired(ctx: BotContext): boolean {
   const messageDate = ctx.callbackQuery?.message?.date;
   if (!messageDate) return false;
@@ -67,10 +60,14 @@ function isPanelExpired(ctx: BotContext): boolean {
 
 async function handleExpiredPanel(
   ctx: BotContext,
-  logger: Logger,
+  _logger: Logger,
 ): Promise<void> {
   await safeAnswerCallbackQuery(ctx, EXPIRED_PANEL_MESSAGE);
-  await disableCurrentInlineKeyboard(ctx, logger);
+  await safeEditMessageText(
+    ctx,
+    "⏳ 这个管理面板已过期。\n\n为避免误操作，请重新加载最新订阅数据。",
+    { reply_markup: expiredPanelKeyboard("list") },
+  );
 }
 
 async function fetchSortedSubscriptions(
@@ -143,6 +140,7 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const subs = await fetchSortedSubscriptions(
       ctx.userKey,
@@ -152,10 +150,9 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
 
     if (subs.length === 0) {
       await safeAnswerCallbackQuery(ctx);
-      await safeEditMessageText(
-        ctx,
-        "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
-      );
+      await safeEditMessageText(ctx, "你还没有添加任何订阅。", {
+        reply_markup: emptySubscriptionsKeyboard(),
+      });
       return;
     }
 
@@ -190,6 +187,7 @@ export async function listSelectCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -237,6 +235,7 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -253,10 +252,9 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(
-          ctx,
-          "没有找到这个订阅，或它已被删除。\n发送 /add 添加第一个订阅。",
-        );
+        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。", {
+          reply_markup: emptySubscriptionsKeyboard(),
+        });
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
@@ -296,6 +294,7 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const subs = await fetchSortedSubscriptions(
       ctx.userKey,
@@ -305,10 +304,9 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
 
     if (subs.length === 0) {
       await safeAnswerCallbackQuery(ctx);
-      await safeEditMessageText(
-        ctx,
-        "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
-      );
+      await safeEditMessageText(ctx, "你还没有添加任何订阅。", {
+        reply_markup: emptySubscriptionsKeyboard(),
+      });
       return;
     }
 
@@ -343,6 +341,7 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -359,10 +358,9 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(
-          ctx,
-          "没有找到这个订阅，或它已被删除。\n发送 /add 添加第一个订阅。",
-        );
+        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。", {
+          reply_markup: emptySubscriptionsKeyboard(),
+        });
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
@@ -404,6 +402,7 @@ export async function listPauseCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx, "正在更新…");
 
     const service = createService(ctx);
     const sub = await service.pause(
@@ -462,10 +461,10 @@ export async function listResumeCallback(ctx: BotContext): Promise<void> {
     }
 
     await safeAnswerCallbackQuery(ctx);
-    await disableCurrentInlineKeyboard(ctx, logger);
     await ctx.conversation.enter("resume", parsed.subId, {
       source: "listManager",
       page: parsed.page,
+      panel: currentPanel(ctx),
     });
   } catch (error) {
     logger.error("Error in listResumeCallback", {
@@ -494,6 +493,7 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -554,6 +554,7 @@ export async function listDeleteConfirmCallback(
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx, "正在删除…");
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -597,7 +598,8 @@ export async function listDeleteConfirmCallback(
     if (subs.length === 0) {
       await safeEditMessageText(
         ctx,
-        `"${sub.name}"已删除。\n\n你还没有添加任何订阅。\n发送 /add 添加第一个订阅。`,
+        `"${sub.name}"已删除。\n\n你还没有添加任何订阅。`,
+        { reply_markup: emptySubscriptionsKeyboard() },
       );
       return;
     }
@@ -637,6 +639,7 @@ export async function listDeleteCancelCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -691,6 +694,7 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
+    await safeAnswerCallbackQuery(ctx);
 
     const { subId, field, page } = parsed;
 
@@ -748,22 +752,21 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
 
     if (field === "cycle") {
       await safeAnswerCallbackQuery(ctx);
-      await disableCurrentInlineKeyboard(ctx, logger);
       await ctx.conversation.enter("editCycle", subId, {
         source: "listManager",
         page,
+        panel: currentPanel(ctx),
       });
       return;
     }
 
     if (["name", "price", "currency", "date"].includes(field)) {
       await safeAnswerCallbackQuery(ctx);
-      await disableCurrentInlineKeyboard(ctx, logger);
       await ctx.conversation.enter(
         "editField",
         subId,
         field as "name" | "price" | "currency" | "date",
-        { source: "listManager", page },
+        { source: "listManager", page, panel: currentPanel(ctx) },
       );
       return;
     }
@@ -776,4 +779,12 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
+}
+
+function currentPanel(
+  ctx: BotContext,
+): { chatId: number; messageId: number } | undefined {
+  const message = ctx.callbackQuery?.message;
+  if (!message) return undefined;
+  return { chatId: message.chat.id, messageId: message.message_id };
 }

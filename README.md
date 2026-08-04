@@ -36,7 +36,15 @@ src/
 - Track fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`), manual `custom` cycles, and interval cycles such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, and `每30天`.
 - Mark subscriptions as trial or non-auto-renewing so reports and reminder wording match the real billing state.
 - Pause and resume subscriptions from the inline list manager. Paused subscriptions are excluded from reminders, date advancement, and spending reports.
-- View compact lists, paginated inline list management, subscription details, JSON export, a PNG spending overview, and text reports.
+- Manage subscriptions from the paginated `/list` panel (`/list_full` remains
+  a compatibility alias), use `/list_text` for a compact text-only list, and
+  download a JSON export file without Telegram's message-length limit.
+- Use structured Rich Messages for help, upcoming renewals, and text reports
+  when supported; Telegram API rejection automatically falls back to equivalent
+  plain text with the same action keyboard.
+- Keep personal data private: subscription commands and legacy callbacks stop
+  before session/profile/KV middleware in groups and direct users to the bot's
+  private chat.
 - Send scheduled renewal reminders through Cloudflare Cron Triggers.
 
 ## Development
@@ -48,7 +56,7 @@ pnpm install
 # Run dev server
 pnpm dev
 
-# Push Telegram slash-command menu
+# Push the core slash-command menu to all private chats
 pnpm command:push
 
 # Run tests
@@ -62,6 +70,12 @@ pnpm lint
 
 # Format
 pnpm format
+
+# Inspect package and artifact contributions to the Worker bundle
+pnpm bundle:analyze
+
+# Enforce the 2 MiB gzip upload budget
+pnpm bundle:check
 ```
 
 Before merging a code change, run:
@@ -70,7 +84,35 @@ Before merging a code change, run:
 pnpm types:check
 pnpm test:run
 pnpm lint
+pnpm format:check
+pnpm audit
+pnpm bundle:check
 ```
+
+The published private-chat command menu is intentionally limited to
+`start`, `menu`, `add`, `list`, `report`, `reminders`, `settings`, and `help`.
+Advanced commands remain available through help and the settings privacy panel.
+
+## Worker Bundle Budget
+
+Cloudflare Free Workers have a 3 MiB compressed script limit. This project keeps
+a stricter 2 MiB gzip budget so new features cannot consume the platform limit
+without an explicit decision.
+
+The optimized Wrangler 4.107.0 baseline is 2.66 MiB raw / 1.23 MiB gzip. The
+normal operating target is at most 1.35 MiB gzip; 2 MiB is the hard failure
+threshold.
+
+Wrangler minification is enabled in `wrangler.toml`. `pnpm bundle:analyze`
+performs a dry-run build and reports:
+
+- Wrangler's total raw and gzip upload size
+- each npm package's uncompressed contribution to the JavaScript bundle
+- separate raw and local gzip measurements for JavaScript, WebAssembly, and fonts
+
+Package-level gzip attribution is intentionally not reported because JavaScript
+is compressed as a shared stream. Run `pnpm bundle:check` before deployment;
+`pnpm deploy` runs the same check automatically.
 
 ## Environment Variables
 
@@ -82,7 +124,7 @@ pnpm lint
 | `USER_HASH_SECRET` | Yes | High-entropy random string |
 | `ADMIN_USER_ID` | No | Telegram user ID marked as admin |
 | `APP_ENV` | No | `development` (default), `production`, `test` |
-| `REMINDER_DAYS_AHEAD` | No | Number of days ahead to send renewal reminders (default: 3) |
+| `REMINDER_DAYS_AHEAD` | No | Days before renewal to start daily reminders through the billing date (default: 3) |
 | `XCURRENCY_API_KEY` | No | XCurrency commercial data API key for admin-triggered exchange-rate sync |
 
 Secrets belong in `.dev.vars` locally and in Wrangler secrets for production:

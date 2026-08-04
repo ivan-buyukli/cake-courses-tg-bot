@@ -2,13 +2,14 @@ name = "subscription-bot"
 main = "src/index.ts"
 compatibility_date = "2026-07-06"
 compatibility_flags = ["nodejs_compat"]
+minify = true
 
 rules = [
-  { type = "Data", globs = ["**/*.woff2", "**/*.woff"], fallthrough = true },
+  { type = "Data", globs = ["**/*.woff"], fallthrough = true },
 ]
 
 [vars]
-APP_ENV = "development"
+APP_ENV = "production"
 REMINDER_DAYS_AHEAD = "3"
 
 # To use a real KV namespace, create one and fill in the IDs:

@@ -64,7 +64,7 @@ function formatReminderMessage(sub: Subscription): string {
     lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  lines.push("\n发送 /list_full 查看详情或管理订阅。");
+  lines.push("\n发送 /list 查看详情或管理订阅。");
   return lines.join("\n");
 }
 
@@ -84,7 +84,7 @@ function formatReminderListItem(sub: Subscription, index: number): string {
     parts.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  parts.push("发送 /list_full 管理");
+  parts.push("发送 /list 管理");
   return parts.join("｜");
 }
 
@@ -159,6 +159,7 @@ export interface ReminderBatchResult {
 interface PendingReminder {
   entry: ReminderEntry;
   date: string;
+  localDate: string;
   sub: Subscription;
   userProfile: DecryptedUserProfile;
   settings: UserSettings;
@@ -290,7 +291,14 @@ export async function processReminderEntry(
     }
 
     // 8. Send in this user's single daily dispatch slot.
-    if (await reminderRepo.hasSent(entry.userKey, entry.subscriptionId, date)) {
+    if (
+      await reminderRepo.hasSent(
+        entry.userKey,
+        entry.subscriptionId,
+        billingDate,
+        localToday,
+      )
+    ) {
       return result;
     }
 
@@ -308,7 +316,12 @@ export async function processReminderEntry(
       });
       // Continue to advancement below even if send failed
     } else {
-      await reminderRepo.markSent(entry.userKey, entry.subscriptionId, date);
+      await reminderRepo.markSent(
+        entry.userKey,
+        entry.subscriptionId,
+        billingDate,
+        localToday,
+      );
       result.sent = true;
       log("info", "Reminder sent successfully", {
         date,
@@ -474,13 +487,21 @@ async function collectPendingReminder(
       return result;
     }
 
-    if (await reminderRepo.hasSent(entry.userKey, entry.subscriptionId, date)) {
+    if (
+      await reminderRepo.hasSent(
+        entry.userKey,
+        entry.subscriptionId,
+        billingDate,
+        localToday,
+      )
+    ) {
       return result;
     }
 
     result.pending = {
       entry,
       date,
+      localDate: localToday,
       sub,
       userProfile,
       settings,
@@ -560,6 +581,7 @@ export async function processReminderEntries(
           reminder.entry.userKey,
           reminder.entry.subscriptionId,
           reminder.date,
+          reminder.localDate,
         );
       }
       result.sent += reminders.length;
@@ -576,10 +598,7 @@ export async function processReminderEntries(
     }
 
     for (const reminder of reminders) {
-      const localToday = getLocalTimeInfo(
-        reminder.settings.timezone || "UTC",
-      )?.date;
-      if (!localToday || localToday < reminder.sub.nextBillingDate) {
+      if (reminder.localDate < reminder.sub.nextBillingDate) {
         continue;
       }
       if (isTrialSubscription(reminder.sub)) {
@@ -598,9 +617,9 @@ export async function processReminderEntries(
         reminder.entry.userKey,
         reminder.entry.subscriptionId,
         env.ENCRYPTION_KEY,
-        localToday,
+        reminder.localDate,
       );
-      if (advanced && advanced.nextBillingDate > localToday) {
+      if (advanced && advanced.nextBillingDate > reminder.localDate) {
         result.advanced++;
       }
     }

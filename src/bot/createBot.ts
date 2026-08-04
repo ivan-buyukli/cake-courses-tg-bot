@@ -9,10 +9,17 @@ import { requestContext } from "./middleware/requestContext.js";
 import { auth } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { rateLimiter } from "./middleware/rateLimit.js";
+import { privateChatOnly } from "./middleware/privateChatOnly.js";
 import { startCommand } from "./commands/start.js";
+import { menuCommand } from "./commands/menu.js";
+import { cancelCommand } from "./commands/cancel.js";
 import { helpCommand } from "./commands/help.js";
 import { addCommand } from "./commands/add.js";
-import { listCommand, listFullCommand } from "./commands/list.js";
+import {
+  listCommand,
+  listFullCommand,
+  listTextCommand,
+} from "./commands/list.js";
 import { exportCommand } from "./commands/export.js";
 import { reportCommand } from "./commands/report.js";
 import { reportTextCommand } from "./commands/reportText.js";
@@ -64,11 +71,29 @@ import {
   listDeleteCancelCallback,
   listEditFieldCallback,
 } from "./callbacks/listCallbacks.js";
+import { navigationCallback } from "./callbacks/navigationCallbacks.js";
 import { mainMenuText } from "./mainMenuActions.js";
 import {
   MAIN_MENU_ACTIONS,
   MAIN_MENU_BUTTON_LABELS,
 } from "./keyboards/mainMenuKeyboard.js";
+import { expiredPanelKeyboard } from "./ui/navigation.js";
+
+async function markExpiredPanel(
+  ctx: BotContext,
+  restart: "add" | "list" | "settings",
+  toast: string,
+): Promise<void> {
+  await ctx.answerCallbackQuery(toast);
+  try {
+    await ctx.editMessageText(
+      "⏳ 这个操作面板已过期。\n\n请重新开始，以确保显示的是最新数据。",
+      { reply_markup: expiredPanelKeyboard(restart) },
+    );
+  } catch {
+    // A callback can outlive its source message; the toast still informs users.
+  }
+}
 
 function createGetSessionKey(env: Env) {
   return async (ctx: Context): Promise<string | undefined> => {
@@ -84,6 +109,11 @@ export function createBot(
   const bot = new Bot<BotContext>(env.BOT_TOKEN, { client });
 
   const getSessionKey = createGetSessionKey(env);
+
+  // Personal subscription data is only available in private chats. This
+  // guard intentionally runs before session and request context middleware so
+  // group commands cannot touch KV, create sessions, or refresh user profiles.
+  bot.use(privateChatOnly());
 
   // Sequentialize updates sharing the same session key to prevent
   // read-modify-write races on KV-backed session data.
@@ -165,10 +195,13 @@ export function createBot(
 
   // Commands
   bot.command("start", startCommand);
+  bot.command("menu", menuCommand);
+  bot.command("cancel", cancelCommand);
   bot.command("help", helpCommand);
   bot.command("add", addCommand);
   bot.command("list_full", listFullCommand);
   bot.command("list", listCommand);
+  bot.command("list_text", listTextCommand);
   bot.command("export", exportCommand);
   bot.command("report", reportCommand);
   bot.command("report_text", reportTextCommand);
@@ -189,6 +222,8 @@ export function createBot(
   for (const action of MAIN_MENU_ACTIONS) {
     bot.hears(MAIN_MENU_BUTTON_LABELS[action], mainMenuText);
   }
+
+  bot.callbackQuery(/^nav:/, navigationCallback);
 
   bot.callbackQuery(/^delete:confirm:/, deleteConfirmCallback);
   bot.callbackQuery(/^delete:cancel:/, deleteCancelCallback);
@@ -232,36 +267,34 @@ export function createBot(
   // or timeout). They answer the callback so Telegram stops the
   // loading spinner and inform the user the action expired.
   bot.callbackQuery(/^cycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
+    await markExpiredPanel(ctx, "add", "这次选择已过期，请重新开始。");
   });
   bot.callbackQuery(/^editcycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次选择已过期，请通过订阅列表重新编辑。");
+    await markExpiredPanel(ctx, "list", "这次选择已过期，请重新编辑。");
   });
   bot.callbackQuery(/^addcurrency:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次币种选择已过期，请重新开始当前操作。");
+    await markExpiredPanel(ctx, "add", "这次币种选择已过期。");
   });
   bot.callbackQuery(/^addprice:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次价格选择已过期，请重新开始当前操作。");
+    await markExpiredPanel(ctx, "add", "这次价格选择已过期。");
   });
   bot.callbackQuery(/^adddate:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次日期选择已过期，请重新开始当前操作。");
+    await markExpiredPanel(ctx, "add", "这次日期选择已过期。");
   });
   bot.callbackQuery(/^cycleint:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次间隔选择已过期，请重新开始当前操作。");
+    await markExpiredPanel(ctx, "add", "这次间隔选择已过期。");
   });
   bot.callbackQuery(/^add:confirm$/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次确认已过期，请发送 /add 重新开始。");
+    await markExpiredPanel(ctx, "add", "这次确认已过期。");
   });
   bot.callbackQuery(/^add:cancel$/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次确认已过期。");
+    await markExpiredPanel(ctx, "add", "这次确认已过期。");
   });
   bot.callbackQuery(/^add:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次确认已过期，请发送 /add 重新开始。");
+    await markExpiredPanel(ctx, "add", "这次确认已过期。");
   });
   bot.callbackQuery(/^settings:/, async (ctx) => {
-    await ctx.answerCallbackQuery(
-      "这次选择已过期，请发送 /settings 重新开始。",
-    );
+    await markExpiredPanel(ctx, "settings", "这次设置选择已过期。");
   });
 
   return bot;

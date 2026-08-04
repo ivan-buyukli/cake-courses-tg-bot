@@ -5,11 +5,14 @@
 | Command      | Description                                      | Status        |
 |-------------|--------------------------------------------------|---------------|
 | `/start`    | Start the bot and show welcome message           | Implemented   |
+| `/menu`     | Restore the persistent main menu                 | Implemented   |
+| `/cancel`   | Cancel the active flow or restore the main menu  | Implemented   |
 | `/help`     | Show list of available commands                  | Implemented   |
 | `/add`      | Add a new subscription (interactive or one-line) | Implemented   |
-| `/list`     | List all your subscriptions in compact text      | Implemented   |
-| `/list_full`| List subscriptions with inline action buttons    | Implemented   |
-| `/export`   | Export your subscription data as JSON            | Implemented   |
+| `/list`     | Open the inline subscription manager             | Implemented   |
+| `/list_full`| Compatibility alias for `/list`                  | Implemented   |
+| `/list_text`| List all subscriptions in compact text           | Implemented   |
+| `/export`   | Download your subscription data as a JSON file   | Implemented   |
 | `/report`   | Generate subscription spending PNG overview      | Implemented   |
 | `/report_text` | Generate text spending detail report         | Implemented   |
 | `/reminders`| Show upcoming renewals within reminder window    | Implemented   |
@@ -52,7 +55,10 @@ Shows a welcome message with the persistent reply keyboard. First-time users are
 8. Mark whether it auto-renews.
 9. Review summary with Confirm/Cancel buttons.
 
-If the user sends `/cancel` at any step, the conversation exits immediately and **no partial subscription is saved**.
+The persistent menu is hidden while typed input is expected and restored on
+completion or cancellation. Invalid name, price, currency, date, interval, and
+timezone input stays on the same step. `/cancel`, `取消`, and the visible cancel
+buttons exit without saving partial data.
 
 **One-line mode**:
 ```
@@ -69,11 +75,21 @@ One-line `/add` always creates an active, paid, auto-renewing subscription. It d
 
 ### `/list`
 
-Displays all subscriptions sorted by status and next billing date as compact text. Active subscriptions are shown before paused subscriptions. Each line shows name, price, billing cycle, type/status markers, and the next relevant date as a relative day count.
+Displays the paginated inline manager. Each page shows up to 8 subscriptions as
+buttons. Selecting a subscription opens a detail view with edit, delete,
+pause/resume, trial, auto-renewal, and back actions.
 
 ### `/list_full`
 
-Displays a paginated inline list manager. Each page shows up to 8 subscriptions as buttons. Selecting a subscription opens a detail view with actions:
+Compatibility alias that invokes the same handler as `/list`, so existing
+commands and old documentation links remain valid.
+
+### `/list_text`
+
+Displays subscriptions sorted by status and next billing date as compact text.
+Active subscriptions are shown before paused subscriptions.
+
+The `/list` manager actions include:
 - Edit
 - Delete
 - Pause or Resume
@@ -84,7 +100,10 @@ Displays a paginated inline list manager. Each page shows up to 8 subscriptions 
 The edit menu supports name, price, currency, cycle, and next billing date.
 
 **Interactive mode**:
-Click **编辑** from a `/list_full` detail view. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, and Back. Text/date/cycle edits start conversations. Price can be skipped with a button in `/add`; currency custom input can return to the picker; advanced cycle intervals offer presets before custom text input. Trial and auto-renewal are direct actions on the detail view.
+Click **编辑** from a `/list` detail view. Text/date/cycle edits receive a
+serializable source-panel reference. After saving, the bot edits that original
+detail panel and restores the persistent main menu instead of sending a second
+copy of the detail.
 
 The detail view also supports deleting, pausing, and resuming a subscription without typed IDs. Delete shows a confirmation inline keyboard before deleting. Pause happens immediately. Resume starts a short confirmation/date conversation.
 
@@ -97,7 +116,9 @@ The resume conversation shows inline buttons to resume with the existing date, o
 
 ### `/export`
 
-Returns a JSON export with `version`, `exportedAt`, and `subscriptions`. Sent as a MarkdownV2 code block. Size is limited to ~4000 characters (Telegram message limit). If the export is too large, the bot informs the user.
+Sends `subscription-export-YYYY-MM-DD.json` as a Telegram document after an
+`upload_document` chat action. The export is no longer limited by the 4096-unit
+text message limit.
 
 The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encrypted payloads. Export version `2` includes status, trial, auto-renewal, billing anchor, and interval metadata on subscriptions.
 
@@ -121,11 +142,15 @@ Rates are maintained with USD as the exchange-rate base (`1 USD = N currency`). 
 
 Admins can refresh the XCurrency key with `/admin_sync_exchange_rates` when `XCURRENCY_API_KEY` is configured. The XCurrency API returns USD-quoted values (`1 currency = N USD`), and the bot stores their inverse to keep the internal format unchanged.
 
-If PNG generation fails, the bot falls back to a plain-text summary. Use `/report_text` for full Telegram text details.
+The bot sends `upload_photo` before rendering. The resulting photo includes
+buttons for the text details and report settings. If PNG generation or photo
+sending fails, the bot falls back to a plain-text summary.
 
 ### `/report_text`
 
-Generates a text report split into Telegram-safe message chunks:
+Generates a structured Rich Message with summary tables and collapsible monthly
+details. If Telegram rejects the Rich Message, it sends the equivalent plain
+text in the same request path with the same action keyboard:
 - Upcoming 30-day due line items, sorted by billing date.
 - Converted upcoming 30-day total in the user's default currency.
 - Future 12-month projection grouped by month.
@@ -135,6 +160,8 @@ Generates a text report split into Telegram-safe message chunks:
 
 Lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
 Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. This command uses the compact list label `扣款日`.
+
+Scheduled delivery starts `REMINDER_DAYS_AHEAD` days before the billing date and repeats once per user-local day through the billing date. With the default value of `3`, eligible dates are D-3, D-2, D-1, and D. Failed Telegram sends are not marked as delivered and remain retryable during the same local dispatch window.
 
 Scheduled reminder messages include an inline **已续费一个周期** action when the bot can calculate the next billing date. It advances that subscription by one cycle, updates the reminder index, and ignores stale clicks from older reminder messages.
 

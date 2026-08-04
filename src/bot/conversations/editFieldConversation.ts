@@ -16,20 +16,23 @@ import { parseEditCycleCallbackData } from "../../utils/callbackParser.js";
 import { collectDateInput } from "./dateInput.js";
 import { collectCurrencyInput } from "./currencyInput.js";
 import { collectCycleInput } from "./cycleInput.js";
+import {
+  forceReply,
+  hideMainMenu,
+  restoreMainMenu,
+} from "../ui/conversationUi.js";
 
 interface ListManagerConversationOptions {
   source?: "listManager";
   page?: number;
+  panel?: {
+    chatId: number;
+    messageId: number;
+  };
 }
 
 function isFromListManager(options?: ListManagerConversationOptions): boolean {
   return options?.source === "listManager";
-}
-
-function restartHint(options?: ListManagerConversationOptions): string {
-  return isFromListManager(options)
-    ? "\n请重新从详情中选择编辑。"
-    : "\n请发送 /list_full 重新选择要编辑的订阅。";
 }
 
 async function replyWithListManagerDetail(
@@ -40,6 +43,28 @@ async function replyWithListManagerDetail(
   await ctx.reply(formatDetailText(sub), {
     reply_markup: buildDetailKeyboard(sub, page),
   });
+}
+
+async function updateListManagerDetail(
+  ctx: BaseBotContext,
+  sub: Subscription,
+  page: number,
+  panel?: { chatId: number; messageId: number },
+): Promise<void> {
+  if (!panel) {
+    await replyWithListManagerDetail(ctx, sub, page);
+    return;
+  }
+  try {
+    await ctx.api.editMessageText(
+      panel.chatId,
+      panel.messageId,
+      formatDetailText(sub),
+      { reply_markup: buildDetailKeyboard(sub, page) },
+    );
+  } catch {
+    await replyWithListManagerDetail(ctx, sub, page);
+  }
 }
 
 // TODO: grammY conversations do not have built-in timeout handling.
@@ -89,6 +114,7 @@ export async function editFieldConversation(
   const userKey = ctxData.userKey;
   const encryptionKey = ctxData.encryptionKey;
   const logger = createLogger(ctxData.requestId);
+  await hideMainMenu(ctx, "正在编辑订阅。可随时发送 /cancel 或“取消”退出。");
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -101,6 +127,7 @@ export async function editFieldConversation(
 
   if (!sub) {
     await ctx.reply("没有找到这个订阅，或它已被删除。");
+    await restoreMainMenu(ctx);
     return;
   }
 
@@ -128,40 +155,56 @@ export async function editFieldConversation(
   const updated = { ...sub, updatedAt: now };
 
   if (field === "name") {
-    await ctx.reply(promptMap[field]);
-    const inputCtx = await conversation.waitFor("message:text");
-    const input = inputCtx.msg.text;
-    if (isCancelInput(input)) {
-      await ctx.reply("已取消。");
-      return;
+    await ctx.reply(promptMap[field], {
+      reply_markup: forceReply("输入新的订阅名称"),
+    });
+    while (true) {
+      const inputCtx = await conversation.waitFor("message:text");
+      const input = inputCtx.msg.text;
+      if (isCancelInput(input)) {
+        await ctx.reply("已取消。");
+        await restoreMainMenu(ctx);
+        return;
+      }
+      const error = validateEditName(input);
+      if (error) {
+        await ctx.reply(error + "\n请在当前步骤重新输入。", {
+          reply_markup: forceReply("输入新的订阅名称"),
+        });
+        continue;
+      }
+      updated.name = input.trim();
+      break;
     }
-    const error = validateEditName(input);
-    if (error) {
-      await ctx.reply(error + restartHint(options));
-      return;
-    }
-    updated.name = input.trim();
   } else if (field === "price") {
-    await ctx.reply(promptMap[field]);
-    const inputCtx = await conversation.waitFor("message:text");
-    const input = inputCtx.msg.text;
-    if (isCancelInput(input)) {
-      await ctx.reply("已取消。");
-      return;
+    await ctx.reply(promptMap[field], {
+      reply_markup: forceReply("输入新的价格"),
+    });
+    while (true) {
+      const inputCtx = await conversation.waitFor("message:text");
+      const input = inputCtx.msg.text;
+      if (isCancelInput(input)) {
+        await ctx.reply("已取消。");
+        await restoreMainMenu(ctx);
+        return;
+      }
+      const result = validateEditPrice(input);
+      if (result.error) {
+        await ctx.reply(result.error + "\n请在当前步骤重新输入。", {
+          reply_markup: forceReply("输入新的价格"),
+        });
+        continue;
+      }
+      updated.price = result.price;
+      break;
     }
-    const result = validateEditPrice(input);
-    if (result.error) {
-      await ctx.reply(result.error + restartHint(options));
-      return;
-    }
-    updated.price = result.price;
   } else if (field === "currency") {
     const selectedCurrency = await collectCurrencyInput(conversation, ctx, {
       prompt: promptMap[field],
       hasPrice: true,
-      restartHint: restartHint(options),
     });
     if (selectedCurrency.cancelled || !selectedCurrency.currency) {
+      await restoreMainMenu(ctx);
       return;
     }
     updated.currency = selectedCurrency.currency;
@@ -172,6 +215,7 @@ export async function editFieldConversation(
       promptMap[field],
     );
     if (!selectedDate) {
+      await restoreMainMenu(ctx);
       return;
     }
     updated.nextBillingDate = selectedDate;
@@ -193,14 +237,23 @@ export async function editFieldConversation(
   });
 
   if (isFromListManager(options)) {
-    await ctx.reply(`已更新“${updated.name}”的${fieldLabels[field]}。`);
-    await replyWithListManagerDetail(ctx, updated, options?.page ?? 0);
+    await updateListManagerDetail(
+      ctx,
+      updated,
+      options?.page ?? 0,
+      options?.panel,
+    );
+    await restoreMainMenu(
+      ctx,
+      `✅ 已保存“${updated.name}”的${fieldLabels[field]}。`,
+    );
     return;
   }
 
   await ctx.reply(
-    `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /list_full 查看结果。`,
+    `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /list 查看结果。`,
   );
+  await restoreMainMenu(ctx);
 }
 
 export async function editCycleConversation(
@@ -225,6 +278,10 @@ export async function editCycleConversation(
   const userKey = ctxData.userKey;
   const encryptionKey = ctxData.encryptionKey;
   const logger = createLogger(ctxData.requestId);
+  await hideMainMenu(
+    ctx,
+    "正在编辑扣款周期。可随时发送 /cancel 或“取消”退出。",
+  );
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -237,6 +294,7 @@ export async function editCycleConversation(
 
   if (!sub) {
     await ctx.reply("没有找到这个订阅，或它已被删除。");
+    await restoreMainMenu(ctx);
     return;
   }
 
@@ -246,10 +304,13 @@ export async function editCycleConversation(
     callbackData: (cycle) => `editcycle:${cycle}:${subId}`,
     parseCycle: (callbackData) =>
       parseEditCycleCallbackData(callbackData)?.cycle ?? null,
-    invalidSelectionMessage: "请点击按钮选择扣款周期。" + restartHint(options),
-    restartHint: restartHint(options),
+    invalidSelectionMessage: "请点击按钮选择扣款周期，或点击取消。",
+    cancelData: `editcycle:cancel:${subId}`,
   });
-  if (!cycleSelection) return;
+  if (!cycleSelection) {
+    await restoreMainMenu(ctx);
+    return;
+  }
 
   const cycle = cycleSelection.cycle;
   const billingInterval: BillingInterval | undefined =
@@ -275,13 +336,19 @@ export async function editCycleConversation(
   logger.info("Subscription cycle updated via conversation", { subId, cycle });
 
   if (isFromListManager(options)) {
-    await ctx.reply(
-      `已将“${updated.name}”的周期更新为${formatBillingCycle(
+    await updateListManagerDetail(
+      ctx,
+      updated,
+      options?.page ?? 0,
+      options?.panel,
+    );
+    await restoreMainMenu(
+      ctx,
+      `✅ 已将“${updated.name}”的周期更新为${formatBillingCycle(
         cycle,
         billingInterval,
       )}。`,
     );
-    await replyWithListManagerDetail(ctx, updated, options?.page ?? 0);
     return;
   }
 
@@ -289,6 +356,7 @@ export async function editCycleConversation(
     `已将“${updated.name}”的周期更新为${formatBillingCycle(
       cycle,
       billingInterval,
-    )}。\n发送 /list_full 查看结果。`,
+    )}。\n发送 /list 查看结果。`,
   );
+  await restoreMainMenu(ctx);
 }

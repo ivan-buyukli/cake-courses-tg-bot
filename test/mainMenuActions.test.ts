@@ -9,6 +9,7 @@ vi.mock("../src/bot/commands/help.js", () => ({
   helpCommand: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../src/bot/commands/list.js", () => ({
+  listCommand: vi.fn().mockResolvedValue(undefined),
   listFullCommand: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../src/bot/commands/reminders.js", () => ({
@@ -23,7 +24,7 @@ vi.mock("../src/bot/commands/settings.js", () => ({
 
 import { addCommand } from "../src/bot/commands/add.js";
 import { helpCommand } from "../src/bot/commands/help.js";
-import { listFullCommand } from "../src/bot/commands/list.js";
+import { listCommand, listFullCommand } from "../src/bot/commands/list.js";
 import { remindersCommand } from "../src/bot/commands/reminders.js";
 import { reportCommand } from "../src/bot/commands/report.js";
 import { settingsCommand } from "../src/bot/commands/settings.js";
@@ -61,7 +62,7 @@ describe("main menu actions", () => {
         msg: expect.objectContaining({ text: "/add" }),
       }),
     );
-    expect(listFullCommand).toHaveBeenCalledWith(ctx);
+    expect(listCommand).toHaveBeenCalledWith(ctx);
     expect(reportCommand).toHaveBeenCalledWith(ctx);
     expect(remindersCommand).toHaveBeenCalledWith(ctx);
     expect(settingsCommand).toHaveBeenCalledWith(ctx);
@@ -85,6 +86,7 @@ describe("main menu actions", () => {
 
     expect(addCommand).not.toHaveBeenCalled();
     expect(helpCommand).not.toHaveBeenCalled();
+    expect(listCommand).not.toHaveBeenCalled();
     expect(listFullCommand).not.toHaveBeenCalled();
     expect(remindersCommand).not.toHaveBeenCalled();
     expect(reportCommand).not.toHaveBeenCalled();

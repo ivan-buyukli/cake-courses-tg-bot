@@ -5,15 +5,17 @@ export function binaryActionKeyboard({
   confirmData,
   cancelLabel = "❌ 取消",
   cancelData,
+  confirmStyle = "success",
 }: {
   confirmLabel?: string;
   confirmData: string;
   cancelLabel?: string;
   cancelData: string;
+  confirmStyle?: "primary" | "success" | "danger";
 }): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(confirmLabel, confirmData)
-    .text(cancelLabel, cancelData);
+  const keyboard = new InlineKeyboard().text(confirmLabel, confirmData);
+  keyboard[confirmStyle]();
+  return keyboard.text(cancelLabel, cancelData);
 }
 
 export function confirmationKeyboard(
@@ -29,5 +31,6 @@ export function confirmationKeyboard(
     confirmData: `${actionPrefix}:confirm:${data}`,
     cancelLabel: options?.cancelLabel,
     cancelData: `${actionPrefix}:cancel:${data}`,
+    confirmStyle: actionPrefix.includes("delete") ? "danger" : "success",
   });
 }

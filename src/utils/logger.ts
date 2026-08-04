@@ -1,5 +1,6 @@
 const TELEGRAM_BOT_TOKEN_RE = /\b\d{6,}:[A-Za-z0-9_-]{20,}\b/g;
-const TELEGRAM_BOT_URL_RE = /(api\.telegram\.org\/bot)\d{6,}:[A-Za-z0-9_-]{20,}/g;
+const TELEGRAM_BOT_URL_RE =
+  /(api\.telegram\.org\/bot)\d{6,}:[A-Za-z0-9_-]{20,}/g;
 const USER_KEY_RE = /(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g;
 const LONG_NUMERIC_ID_RE = /(?<![\w.-])-?\d{7,}(?![\w.-])/g;
 
@@ -34,7 +35,9 @@ function sanitizeLogValue(value: unknown): unknown {
   return value;
 }
 
-function sanitizeLogMeta(meta?: Record<string, unknown>): Record<string, unknown> {
+function sanitizeLogMeta(
+  meta?: Record<string, unknown>,
+): Record<string, unknown> {
   return meta ? (sanitizeLogValue(meta) as Record<string, unknown>) : {};
 }
 

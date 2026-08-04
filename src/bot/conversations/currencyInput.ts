@@ -33,12 +33,10 @@ export async function collectCurrencyInput(
   {
     prompt = "请选择币种，或点“其他”输入代码。",
     hasPrice,
-    restartHint,
     cancelMessage = "已取消。",
   }: {
     prompt?: string;
     hasPrice: boolean;
-    restartHint?: string;
     cancelMessage?: string;
   },
 ): Promise<CurrencyInputResult> {
@@ -47,11 +45,20 @@ export async function collectCurrencyInput(
       reply_markup: currencyKeyboard(hasPrice),
     });
 
-    const currencyCtx =
-      await conversation.waitForCallbackQuery(/^addcurrency:/);
-    const parsedCurrency = parseAddCurrencyCallbackData(
-      currencyCtx.callbackQuery.data,
-    );
+    const currencyCtx = await conversation.wait();
+    if (currencyCtx.message?.text) {
+      if (isCancelInput(currencyCtx.message.text)) {
+        await ctx.reply(cancelMessage);
+        return { cancelled: true };
+      }
+      await ctx.reply("请点击按钮选择币种，或发送 /cancel 退出。");
+      continue;
+    }
+    const currencyCallbackData = currencyCtx.callbackQuery?.data;
+    if (!currencyCallbackData?.startsWith("addcurrency:")) {
+      continue;
+    }
+    const parsedCurrency = parseAddCurrencyCallbackData(currencyCallbackData);
 
     if (!parsedCurrency) {
       await currencyCtx.answerCallbackQuery("无效的币种选择。");
@@ -93,9 +100,10 @@ export async function collectCurrencyInput(
           const result = validateCurrencyInput(customCurrencyText, hasPrice);
           if (result.error || !result.currency) {
             await ctx.reply(
-              (result.error ?? "请输入有效的币种代码。") + (restartHint ?? ""),
+              (result.error ?? "请输入有效的币种代码。") +
+                "\n请留在当前步骤重新输入。",
             );
-            return { cancelled: true };
+            continue;
           }
           return { currency: result.currency, cancelled: false };
         }

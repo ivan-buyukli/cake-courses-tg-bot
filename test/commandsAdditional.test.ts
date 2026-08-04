@@ -3,7 +3,11 @@ import type { KVNamespace } from "@cloudflare/workers-types";
 import { addCommand } from "../src/bot/commands/add.js";
 import { deleteMeCommand } from "../src/bot/commands/deleteMe.js";
 import { helpCommand } from "../src/bot/commands/help.js";
-import { listCommand, listFullCommand } from "../src/bot/commands/list.js";
+import {
+  listCommand,
+  listFullCommand,
+  listTextCommand,
+} from "../src/bot/commands/list.js";
 import { remindersCommand } from "../src/bot/commands/reminders.js";
 import { settingsCommand } from "../src/bot/commands/settings.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
@@ -103,7 +107,7 @@ describe("simple commands", () => {
 
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(text).toContain("/add <名称>");
-    expect(text).toContain("/list_full");
+    expect(text).toContain("/list_text");
     expect(text).toContain("/delete_me");
   });
 
@@ -240,7 +244,8 @@ describe("listCommand and listFullCommand", () => {
     await listCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
+      "你还没有添加任何订阅。",
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 
@@ -273,7 +278,7 @@ describe("listCommand and listFullCommand", () => {
     );
     const ctx = createContext(kv, "/list");
 
-    await listCommand(ctx);
+    await listTextCommand(ctx);
 
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(text.indexOf("Early Active")).toBeLessThan(
@@ -298,6 +303,27 @@ describe("listCommand and listFullCommand", () => {
     expect(JSON.stringify(options.reply_markup)).toContain(
       "list:select:sub-full:0",
     );
+  });
+
+  it("listCommand opens the same manager as the compatibility alias", async () => {
+    const kv = createMockKV();
+    await seedSubscription(kv, createSub({ id: "sub-list" }));
+    const listCtx = createContext(kv, "/list");
+    const legacyCtx = createContext(kv, "/list_full");
+
+    await listCommand(listCtx);
+    await listFullCommand(legacyCtx);
+
+    expect(listCtx.reply).toHaveBeenCalledWith(
+      expect.stringContaining("你的订阅"),
+      expect.objectContaining({ reply_markup: expect.anything() }),
+    );
+    expect(
+      JSON.stringify(
+        (listCtx.reply as ReturnType<typeof vi.fn>).mock.calls[0][1],
+      ),
+    ).toContain("list:select:sub-list:0");
+    expect(legacyCtx.reply).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -330,7 +356,10 @@ describe("remindersCommand", () => {
 
     await remindersCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("近期没有即将扣款的订阅。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "近期没有即将扣款的订阅。",
+      expect.objectContaining({ reply_markup: expect.anything() }),
+    );
   });
 
   it("lists upcoming active renewals within the configured window", async () => {
