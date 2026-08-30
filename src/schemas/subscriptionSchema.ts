@@ -9,7 +9,11 @@ import {
   string,
 } from "zod";
 import type { infer as ZodInfer, ZodType } from "zod";
-import type { BillingCycle, BillingInterval } from "../models/subscription.js";
+import type {
+  BillingCycle,
+  BillingInterval,
+  SubscriptionReminderPolicy,
+} from "../models/subscription.js";
 
 export const billingCycleSchema = zodEnum([
   "monthly",
@@ -33,6 +37,11 @@ export const billingIntervalSchema = discriminatedUnion("unit", [
   }),
 ]) satisfies ZodType<BillingInterval>;
 
+export const subscriptionReminderPolicySchema = object({
+  mode: literal("once"),
+  daysBefore: literal(1),
+}) satisfies ZodType<SubscriptionReminderPolicy>;
+
 export const subscriptionInputSchema = object({
   name: string().min(1).max(100),
   price: number().nonnegative().optional(),
@@ -46,6 +55,7 @@ export const subscriptionInputSchema = object({
   status: subscriptionStatusSchema,
   isTrial: boolean().optional(),
   autoRenew: boolean().optional(),
+  reminderPolicy: subscriptionReminderPolicySchema.optional(),
 }).superRefine((value, ctx) => {
   if (value.billingCycle === "interval" && !value.billingInterval) {
     ctx.addIssue({

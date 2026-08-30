@@ -13,6 +13,11 @@ export interface BillingInterval {
   count: number;
 }
 
+export interface SubscriptionReminderPolicy {
+  mode: "once";
+  daysBefore: 1;
+}
+
 export interface Subscription {
   id: string;
   name: string;
@@ -27,6 +32,8 @@ export interface Subscription {
   status: SubscriptionStatus;
   isTrial?: boolean;
   autoRenew?: boolean;
+  /** Missing means the subscription follows the default repeated reminder window. */
+  reminderPolicy?: SubscriptionReminderPolicy;
   createdAt: string;
   updatedAt: string;
 }

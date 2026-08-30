@@ -50,6 +50,18 @@ describe("edit callbacks", () => {
     expect(ctx.conversation.enter).toHaveBeenCalledWith("editCycle", "sub-1");
   });
 
+  it("enters editReminder for reminder policy edits", async () => {
+    const ctx = createContext("edit:reminder:sub-1");
+
+    await editFieldCallback(ctx);
+
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(undefined);
+    expect(ctx.conversation.enter).toHaveBeenCalledWith(
+      "editReminder",
+      "sub-1",
+    );
+  });
+
   it("enters editField for scalar edits", async () => {
     const ctx = createContext("edit:price:sub-1");
 

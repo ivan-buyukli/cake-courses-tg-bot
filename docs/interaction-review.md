@@ -46,9 +46,11 @@ Editing is available from the inline list manager:
 
 ### Inline edit menu (callback-based)
 1. User clicks a subscription from `/list`, then clicks **编辑**.
-2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Back.
+2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Reminder policy, Back.
 3. Clicking a text field starts `editField` conversation.
 4. Clicking **Cycle** starts `editCycle` conversation with an inline keyboard.
+5. Clicking **Reminder policy** starts `editReminder` and offers either the
+   default repeated reminder window or one reminder on D-1.
 
 Trial and auto-renewal are direct actions on the `/list` detail view instead of edit-menu fields.
 
@@ -117,6 +119,12 @@ Trial subscriptions and non-auto-renewing subscriptions remain visible when due.
 
 Scheduled delivery starts at the beginning of the configured window and repeats once per user-local day through the billing date. The default three-day setting therefore sends on D-3, D-2, D-1, and D. Successful sends are deduplicated per subscription, billing date, and local reminder date; failed sends remain retryable in the current dispatch window.
 
+Subscriptions follow that default behavior unless they have a project-level
+override. The current override sends exactly once on D-1 at the user's normal
+reminder hour. It does not send again on the billing date, but billing-date
+advancement and non-renewing expiration handling still run normally. Existing
+subscriptions have no override and therefore require no migration.
+
 When Rich Messages are available, the result is a table with inline renewal and
 management actions. A Telegram API rejection falls back to equivalent plain
 text without losing the buttons.
@@ -178,6 +186,10 @@ All callbacks use `parse*CallbackData` helpers. If parsing fails:
 - No further action is taken.
 
 ### Expired conversation buttons
+
+Reminder-policy buttons use `editreminder:<inherit|once1|cancel>:<subId>`.
+After the edit conversation ends, stale buttons are replaced with the standard
+expired-panel message and a route back to the list manager.
 Buttons specific to active conversations (`cycle:`, `editcycle:`, `cycleint:`, `addprice:`, `addcurrency:`, `adddate:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:
 - Answer the callback query with "This selection has expired..."
 - Prevent the Telegram loading spinner from spinning indefinitely.

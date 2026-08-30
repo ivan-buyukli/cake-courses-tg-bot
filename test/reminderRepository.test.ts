@@ -148,9 +148,7 @@ describe("reminderRepository", () => {
     await repo.markSent("user-1", "sub-1", "2026-06-04", "2026-06-01");
 
     expect(
-      kv.putOptions.get(
-        "reminder:sent:v2:user-1:sub-1:2026-06-04:2026-06-01",
-      ),
+      kv.putOptions.get("reminder:sent:v2:user-1:sub-1:2026-06-04:2026-06-01"),
     ).toEqual({ expirationTtl: 60 * 60 * 24 * 45 });
   });
 

@@ -35,6 +35,7 @@ import { addConversation } from "./conversations/addConversation.js";
 import {
   editFieldConversation,
   editCycleConversation,
+  editReminderConversation,
 } from "./conversations/editFieldConversation.js";
 import { resumeConversation } from "./conversations/resumeConversation.js";
 import { settingsConversation } from "./conversations/settingsConversation.js";
@@ -182,6 +183,12 @@ export function createBot(
   );
   bot.use(
     createConversation<BotContext, BaseBotContext>(
+      editReminderConversation,
+      "editReminder",
+    ),
+  );
+  bot.use(
+    createConversation<BotContext, BaseBotContext>(
       resumeConversation,
       "resume",
     ),
@@ -242,6 +249,7 @@ export function createBot(
   bot.callbackQuery(/^edit:currency:/, editFieldCallback);
   bot.callbackQuery(/^edit:cycle:/, editFieldCallback);
   bot.callbackQuery(/^edit:date:/, editFieldCallback);
+  bot.callbackQuery(/^edit:reminder:/, editFieldCallback);
   bot.callbackQuery(/^edit:cancel:/, editCancelCallback);
 
   // Privacy callbacks
@@ -271,6 +279,9 @@ export function createBot(
   });
   bot.callbackQuery(/^editcycle:/, async (ctx) => {
     await markExpiredPanel(ctx, "list", "这次选择已过期，请重新编辑。");
+  });
+  bot.callbackQuery(/^editreminder:/, async (ctx) => {
+    await markExpiredPanel(ctx, "list", "这次提醒设置已过期，请重新编辑。");
   });
   bot.callbackQuery(/^addcurrency:/, async (ctx) => {
     await markExpiredPanel(ctx, "add", "这次币种选择已过期。");

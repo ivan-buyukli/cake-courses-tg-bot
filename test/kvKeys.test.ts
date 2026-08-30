@@ -63,9 +63,7 @@ describe("kvKeys", () => {
   });
 
   it("reminderSent returns correct key", () => {
-    expect(
-      reminderSent("user1", "sub1", "2026-06-04", "2026-06-01"),
-    ).toBe(
+    expect(reminderSent("user1", "sub1", "2026-06-04", "2026-06-01")).toBe(
       "reminder:sent:v2:user1:sub1:2026-06-04:2026-06-01",
     );
   });

@@ -162,25 +162,31 @@ export function createSubscriptionService(
       createdAt: savedSub.createdAt,
       updatedAt: savedSub.updatedAt,
     };
-    await repo.save(userKey, stored);
-
     const shouldHaveReminder = savedSub.status === "active";
     const previousDate = previous?.nextBillingDate;
     const reminderDateChanged = previousDate !== savedSub.nextBillingDate;
+    const needsReminderEntry =
+      shouldHaveReminder &&
+      (!previous || previous.status === "paused" || reminderDateChanged);
 
-    if (previous && (!shouldHaveReminder || reminderDateChanged)) {
-      await reminderRepo.removeEntry(
-        previous.nextBillingDate,
+    // KV cannot atomically update the encrypted record and its reminder index.
+    // Add the new index first so a partial failure can only leave a stale entry,
+    // which reminder processing safely rejects, instead of losing the reminder.
+    if (needsReminderEntry) {
+      await reminderRepo.addEntry(
+        savedSub.nextBillingDate,
         userKey,
         savedSub.id,
       );
     }
-    if (
-      shouldHaveReminder &&
-      (!previous || previous.status === "paused" || reminderDateChanged)
-    ) {
-      await reminderRepo.addEntry(
-        savedSub.nextBillingDate,
+
+    await repo.save(userKey, stored);
+
+    // Removing an obsolete index last is also fail-safe: if deletion fails,
+    // the stale entry is ignored because its date/status no longer matches.
+    if (previous && (!shouldHaveReminder || reminderDateChanged)) {
+      await reminderRepo.removeEntry(
+        previous.nextBillingDate,
         userKey,
         savedSub.id,
       );

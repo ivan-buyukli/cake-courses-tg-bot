@@ -41,24 +41,20 @@ export async function editFieldCallback(ctx: BotContext): Promise<void> {
 
     const { field, subId } = parsed;
 
-    if (field === "cycle") {
-      await safeAnswerCallbackQuery(ctx);
-      await ctx.conversation.enter("editCycle", subId);
-      return;
+    await safeAnswerCallbackQuery(ctx);
+    switch (field) {
+      case "cycle":
+        await ctx.conversation.enter("editCycle", subId);
+        return;
+      case "reminder":
+        await ctx.conversation.enter("editReminder", subId);
+        return;
+      case "cancel":
+        await safeEditMessageText(ctx, "已取消编辑。");
+        return;
+      default:
+        await ctx.conversation.enter("editField", subId, field);
     }
-
-    if (["name", "price", "currency", "date"].includes(field)) {
-      await safeAnswerCallbackQuery(ctx);
-      await ctx.conversation.enter(
-        "editField",
-        subId,
-        field as "name" | "price" | "currency" | "date",
-      );
-      return;
-    }
-
-    await safeAnswerCallbackQuery(ctx, "未知的编辑字段。");
-    logger.warn("Unknown edit field in callback", { field });
   } catch (error) {
     logger.error("Error in editFieldCallback", {
       error: error instanceof Error ? error.message : String(error),

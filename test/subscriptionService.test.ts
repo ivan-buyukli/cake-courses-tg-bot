@@ -74,6 +74,70 @@ describe("subscriptionService", () => {
     expect(list[0].price).toBe(12.99);
   });
 
+  it("does not persist a subscription when its reminder index cannot be added", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, {
+      ...reminderRepo,
+      addEntry: async () => {
+        throw new Error("index unavailable");
+      },
+    });
+
+    await expect(
+      service.create(
+        "user-key-123",
+        {
+          id: "sub-1",
+          name: "Netflix",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-01",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        VALID_KEY,
+      ),
+    ).rejects.toThrow("index unavailable");
+
+    expect(await repo.get("user-key-123", "sub-1")).toBeNull();
+  });
+
+  it("leaves only a harmless stale reminder index when record persistence fails", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(
+      {
+        ...repo,
+        save: async () => {
+          throw new Error("record unavailable");
+        },
+      },
+      reminderRepo,
+    );
+
+    await expect(
+      service.create(
+        "user-key-123",
+        {
+          id: "sub-1",
+          name: "Netflix",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-01",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        VALID_KEY,
+      ),
+    ).rejects.toThrow("record unavailable");
+
+    expect(await reminderRepo.listEntries("2026-06-01")).toEqual([
+      { userKey: "user-key-123", subscriptionId: "sub-1" },
+    ]);
+    expect(await repo.get("user-key-123", "sub-1")).toBeNull();
+  });
+
   it("gets a single subscription", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);

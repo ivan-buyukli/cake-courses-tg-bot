@@ -28,6 +28,10 @@ import {
   isAutoRenewing,
   isTrialSubscription,
 } from "../utils/subscriptionFlags.js";
+import {
+  getReminderStartDaysBefore,
+  shouldSendReminderOnDate,
+} from "../utils/reminderPolicy.js";
 
 function getReminderDaysAhead(env: Env): number {
   const raw = env.REMINDER_DAYS_AHEAD;
@@ -167,209 +171,34 @@ interface PendingReminder {
   localMinute: number;
 }
 
-export async function processReminderEntry(
+async function advanceDueSubscription(
   env: Env,
-  reminderRepo: ReminderRepository,
-  subRepo: SubscriptionRepository,
-  userRepo: UserRepository,
   subscriptionService: SubscriptionService,
   entry: ReminderEntry,
-  date: string,
-  daysAhead = getReminderDaysAhead(env),
-): Promise<ReminderEntryResult> {
-  const result: ReminderEntryResult = { sent: false, advanced: false };
+  sub: Subscription,
+  localToday: string,
+): Promise<boolean> {
+  if (isTrialSubscription(sub)) return false;
 
-  try {
-    if (await userRepo.isUserDeleted(entry.userKey)) {
-      return result;
-    }
-
-    // 1. Load subscription and verify it still exists
-    const stored = await subRepo.get(entry.userKey, entry.subscriptionId);
-    if (!stored) {
-      log("info", "Skipping stale reminder: subscription missing", {
-        date,
-        subId: entry.subscriptionId,
-      });
-      return result;
-    }
-    if (stored.nextBillingDate !== date) {
-      log("info", "Skipping stale reminder: billing date mismatch", {
-        date,
-        subId: entry.subscriptionId,
-      });
-      return result;
-    }
-
-    // 2. Decrypt subscription
-    const encryptedSub = parseEncryptedPayload(stored.encryptedPayload);
-    const userEncryptionKey = await deriveUserKey(
-      env.ENCRYPTION_KEY,
-      entry.userKey,
-    );
-    const decryptedSub = await decrypt(encryptedSub, userEncryptionKey);
-    const sub: Subscription = JSON.parse(decryptedSub);
-    const status = sub.status ?? "active";
-
-    // 2b. Skip paused subscriptions
-    if (status === "paused") {
-      log("info", "Skipping reminder: subscription paused", {
-        date,
-        subId: entry.subscriptionId,
-      });
-      return result;
-    }
-
-    // 3. Load user profile (includes chatId and settings)
-    const userProfile = await userRepo.getUserProfile(
-      entry.userKey,
-      env.ENCRYPTION_KEY,
-    );
-    if (!userProfile) {
-      log("warn", "Skipping reminder: no user profile", {
-        date,
-        subId: entry.subscriptionId,
-      });
-      return result;
-    }
-
-    const settings = userProfile.settings ?? DEFAULT_USER_SETTINGS;
-    if (!settings.reminderEnabled) {
-      return result;
-    }
-
-    // 4. Compute user's local time
-    const tz = settings.timezone || "UTC";
-    const local = getLocalTimeInfo(tz);
-    if (!local) {
-      log("warn", "Invalid timezone in user settings", {
-        date,
-        subId: entry.subscriptionId,
-        timezone: tz,
-      });
-      return result;
-    }
-
-    const { date: localToday, hour: localHour, minute: localMinute } = local;
-    const billingDate = sub.nextBillingDate;
-    const reminderHour = settings.reminderHour ?? 9;
-    const reminderStart = addDays(billingDate, -daysAhead);
-
-    // 5. Reminder window has not started for this user
-    if (localToday < reminderStart) {
-      return result;
-    }
-
-    // 6. Billing date is past — catch-up advancement
-    if (localToday > billingDate) {
-      if (isTrialSubscription(sub)) {
-        return result;
-      }
-      if (!isAutoRenewing(sub)) {
-        await subscriptionService.pauseExpiredNonRenewing(
-          entry.userKey,
-          entry.subscriptionId,
-          env.ENCRYPTION_KEY,
-        );
-        return result;
-      }
-      const advanced = await subscriptionService.advancePastDue(
-        entry.userKey,
-        entry.subscriptionId,
-        env.ENCRYPTION_KEY,
-        localToday,
-      );
-      if (advanced && advanced.nextBillingDate > localToday) {
-        result.advanced = true;
-      }
-      return result;
-    }
-
-    // 7. Billing date is within the reminder window — send only in today's dispatch slot
-    if (!isReminderDispatchSlot(localHour, localMinute, reminderHour)) {
-      return result;
-    }
-
-    // 8. Send in this user's single daily dispatch slot.
-    if (
-      await reminderRepo.hasSent(
-        entry.userKey,
-        entry.subscriptionId,
-        billingDate,
-        localToday,
-      )
-    ) {
-      return result;
-    }
-
-    const message = formatReminderMessage(sub);
-    const sendResult = await sendMessage(env, userProfile.chatId, message, {
-      reply_markup: reminderRenewKeyboard([sub]),
-    });
-
-    if (!sendResult.ok) {
-      log("warn", "Failed to send reminder", {
-        date,
-        subId: entry.subscriptionId,
-        status: sendResult.status,
-        description: sendResult.description,
-      });
-      // Continue to advancement below even if send failed
-    } else {
-      await reminderRepo.markSent(
-        entry.userKey,
-        entry.subscriptionId,
-        billingDate,
-        localToday,
-      );
-      result.sent = true;
-      log("info", "Reminder sent successfully", {
-        date,
-        subId: entry.subscriptionId,
-        timezone: tz,
-        localHour,
-        localMinute,
-      });
-    }
-
-    // 9. Advance due subscriptions after the billing-day dispatch slot (auto-renew only)
-    if (localToday < billingDate) {
-      return result;
-    }
-
-    if (isTrialSubscription(sub)) {
-      return result;
-    }
-    if (!isAutoRenewing(sub)) {
-      await subscriptionService.pauseExpiredNonRenewing(
-        entry.userKey,
-        entry.subscriptionId,
-        env.ENCRYPTION_KEY,
-      );
-      return result;
-    }
-
-    const advanced = await subscriptionService.advancePastDue(
+  if (!isAutoRenewing(sub)) {
+    await subscriptionService.pauseExpiredNonRenewing(
       entry.userKey,
       entry.subscriptionId,
       env.ENCRYPTION_KEY,
-      localToday,
     );
-    if (advanced && advanced.nextBillingDate > localToday) {
-      result.advanced = true;
-    }
-  } catch (error) {
-    log("error", "Error processing reminder entry", {
-      date,
-      subId: entry.subscriptionId,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return false;
   }
 
-  return result;
+  const advanced = await subscriptionService.advancePastDue(
+    entry.userKey,
+    entry.subscriptionId,
+    env.ENCRYPTION_KEY,
+    localToday,
+  );
+  return Boolean(advanced && advanced.nextBillingDate > localToday);
 }
 
-async function collectPendingReminder(
+async function evaluateReminderEntry(
   env: Env,
   reminderRepo: ReminderRepository,
   subRepo: SubscriptionRepository,
@@ -453,37 +282,40 @@ async function collectPendingReminder(
     const { date: localToday, hour: localHour, minute: localMinute } = local;
     const billingDate = sub.nextBillingDate;
     const reminderHour = settings.reminderHour ?? 9;
-    const reminderStart = addDays(billingDate, -daysAhead);
+    const reminderStart = addDays(
+      billingDate,
+      -getReminderStartDaysBefore(sub, daysAhead),
+    );
 
     if (localToday < reminderStart) {
       return result;
     }
 
     if (localToday > billingDate) {
-      if (isTrialSubscription(sub)) {
-        return result;
-      }
-      if (!isAutoRenewing(sub)) {
-        await subscriptionService.pauseExpiredNonRenewing(
-          entry.userKey,
-          entry.subscriptionId,
-          env.ENCRYPTION_KEY,
-        );
-        return result;
-      }
-      const advanced = await subscriptionService.advancePastDue(
-        entry.userKey,
-        entry.subscriptionId,
-        env.ENCRYPTION_KEY,
+      result.advanced = await advanceDueSubscription(
+        env,
+        subscriptionService,
+        entry,
+        sub,
         localToday,
-      );
-      result.advanced = Boolean(
-        advanced && advanced.nextBillingDate > localToday,
       );
       return result;
     }
 
     if (!isReminderDispatchSlot(localHour, localMinute, reminderHour)) {
+      return result;
+    }
+
+    if (!shouldSendReminderOnDate(sub, localToday, reminderStart)) {
+      if (localToday === billingDate) {
+        result.advanced = await advanceDueSubscription(
+          env,
+          subscriptionService,
+          entry,
+          sub,
+          localToday,
+        );
+      }
       return result;
     }
 
@@ -495,6 +327,15 @@ async function collectPendingReminder(
         localToday,
       )
     ) {
+      if (localToday === billingDate) {
+        result.advanced = await advanceDueSubscription(
+          env,
+          subscriptionService,
+          entry,
+          sub,
+          localToday,
+        );
+      }
       return result;
     }
 
@@ -519,6 +360,175 @@ async function collectPendingReminder(
   return result;
 }
 
+async function advancePendingReminder(
+  env: Env,
+  subscriptionService: SubscriptionService,
+  reminder: PendingReminder,
+): Promise<boolean> {
+  if (reminder.localDate < reminder.sub.nextBillingDate) return false;
+  return advanceDueSubscription(
+    env,
+    subscriptionService,
+    reminder.entry,
+    reminder.sub,
+    reminder.localDate,
+  );
+}
+
+function logSendFailure(
+  reminders: PendingReminder[],
+  status?: number,
+  description?: string,
+): void {
+  for (const reminder of reminders) {
+    log("warn", "Failed to send reminder", {
+      date: reminder.date,
+      subId: reminder.entry.subscriptionId,
+      status,
+      description,
+    });
+  }
+}
+
+function logSendSuccess(reminder: PendingReminder): void {
+  log("info", "Reminder sent successfully", {
+    date: reminder.date,
+    subId: reminder.entry.subscriptionId,
+    timezone: reminder.settings.timezone || "UTC",
+    localHour: reminder.localHour,
+    localMinute: reminder.localMinute,
+  });
+}
+
+async function markRemindersSent(
+  reminderRepo: ReminderRepository,
+  reminders: PendingReminder[],
+): Promise<void> {
+  const outcomes = await Promise.allSettled(
+    reminders.map((reminder) =>
+      reminderRepo.markSent(
+        reminder.entry.userKey,
+        reminder.entry.subscriptionId,
+        reminder.date,
+        reminder.localDate,
+      ),
+    ),
+  );
+
+  outcomes.forEach((outcome, index) => {
+    const reminder = reminders[index];
+    if (outcome.status === "fulfilled") {
+      logSendSuccess(reminder);
+      return;
+    }
+    log("error", "Failed to persist reminder sent marker", {
+      date: reminder.date,
+      subId: reminder.entry.subscriptionId,
+      error:
+        outcome.reason instanceof Error
+          ? outcome.reason.message
+          : String(outcome.reason),
+    });
+  });
+}
+
+async function advancePendingReminders(
+  env: Env,
+  subscriptionService: SubscriptionService,
+  reminders: PendingReminder[],
+): Promise<number> {
+  const outcomes = await Promise.all(
+    reminders.map(async (reminder) => {
+      try {
+        return await advancePendingReminder(env, subscriptionService, reminder);
+      } catch (error) {
+        log("error", "Failed to advance due subscription", {
+          date: reminder.date,
+          subId: reminder.entry.subscriptionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+    }),
+  );
+  return outcomes.filter(Boolean).length;
+}
+
+async function processPendingReminderBatch(
+  env: Env,
+  reminderRepo: ReminderRepository,
+  subscriptionService: SubscriptionService,
+  reminders: PendingReminder[],
+): Promise<ReminderBatchResult> {
+  const result: ReminderBatchResult = { sent: 0, messages: 0, advanced: 0 };
+  const first = reminders[0];
+  const subs = reminders.map((item) => item.sub);
+
+  try {
+    const sendResult = await sendMessage(
+      env,
+      first.userProfile.chatId,
+      formatCombinedReminderMessage(subs),
+      { reply_markup: reminderRenewKeyboard(subs) },
+    );
+
+    if (sendResult.ok) {
+      result.sent = reminders.length;
+      result.messages = 1;
+      await markRemindersSent(reminderRepo, reminders);
+    } else {
+      logSendFailure(reminders, sendResult.status, sendResult.description);
+    }
+  } catch (error) {
+    logSendFailure(
+      reminders,
+      undefined,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
+  result.advanced = await advancePendingReminders(
+    env,
+    subscriptionService,
+    reminders,
+  );
+  return result;
+}
+
+export async function processReminderEntry(
+  env: Env,
+  reminderRepo: ReminderRepository,
+  subRepo: SubscriptionRepository,
+  userRepo: UserRepository,
+  subscriptionService: SubscriptionService,
+  entry: ReminderEntry,
+  date: string,
+  daysAhead = getReminderDaysAhead(env),
+): Promise<ReminderEntryResult> {
+  const { pending, advanced } = await evaluateReminderEntry(
+    env,
+    reminderRepo,
+    subRepo,
+    userRepo,
+    subscriptionService,
+    entry,
+    date,
+    daysAhead,
+  );
+  if (!pending) return { sent: false, advanced };
+
+  const batchResult = await processPendingReminderBatch(
+    env,
+    reminderRepo,
+    subscriptionService,
+    [pending],
+  );
+  return {
+    sent: batchResult.sent === 1,
+    advanced: batchResult.advanced === 1,
+  };
+}
+
 export async function processReminderEntries(
   env: Env,
   reminderRepo: ReminderRepository,
@@ -532,7 +542,7 @@ export async function processReminderEntries(
   const pendingByUser = new Map<string, PendingReminder[]>();
 
   for (const { entry, date } of inputs) {
-    const { pending, advanced } = await collectPendingReminder(
+    const { pending, advanced } = await evaluateReminderEntry(
       env,
       reminderRepo,
       subRepo,
@@ -555,74 +565,15 @@ export async function processReminderEntries(
   }
 
   for (const reminders of pendingByUser.values()) {
-    const first = reminders[0];
-    const subs = reminders.map((item) => item.sub);
-    const sendResult = await sendMessage(
+    const batchResult = await processPendingReminderBatch(
       env,
-      first.userProfile.chatId,
-      formatCombinedReminderMessage(subs),
-      {
-        reply_markup: reminderRenewKeyboard(subs),
-      },
+      reminderRepo,
+      subscriptionService,
+      reminders,
     );
-
-    if (!sendResult.ok) {
-      for (const reminder of reminders) {
-        log("warn", "Failed to send reminder", {
-          date: reminder.date,
-          subId: reminder.entry.subscriptionId,
-          status: sendResult.status,
-          description: sendResult.description,
-        });
-      }
-    } else {
-      for (const reminder of reminders) {
-        await reminderRepo.markSent(
-          reminder.entry.userKey,
-          reminder.entry.subscriptionId,
-          reminder.date,
-          reminder.localDate,
-        );
-      }
-      result.sent += reminders.length;
-      result.messages++;
-      for (const reminder of reminders) {
-        log("info", "Reminder sent successfully", {
-          date: reminder.date,
-          subId: reminder.entry.subscriptionId,
-          timezone: reminder.settings.timezone || "UTC",
-          localHour: reminder.localHour,
-          localMinute: reminder.localMinute,
-        });
-      }
-    }
-
-    for (const reminder of reminders) {
-      if (reminder.localDate < reminder.sub.nextBillingDate) {
-        continue;
-      }
-      if (isTrialSubscription(reminder.sub)) {
-        continue;
-      }
-      if (!isAutoRenewing(reminder.sub)) {
-        await subscriptionService.pauseExpiredNonRenewing(
-          reminder.entry.userKey,
-          reminder.entry.subscriptionId,
-          env.ENCRYPTION_KEY,
-        );
-        continue;
-      }
-
-      const advanced = await subscriptionService.advancePastDue(
-        reminder.entry.userKey,
-        reminder.entry.subscriptionId,
-        env.ENCRYPTION_KEY,
-        reminder.localDate,
-      );
-      if (advanced && advanced.nextBillingDate > reminder.localDate) {
-        result.advanced++;
-      }
-    }
+    result.sent += batchResult.sent;
+    result.messages += batchResult.messages;
+    result.advanced += batchResult.advanced;
   }
 
   return result;

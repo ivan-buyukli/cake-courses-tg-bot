@@ -9,13 +9,13 @@ import {
   privacyDeleteConfirmCallback,
 } from "../src/bot/callbacks/privacyCallbacks.js";
 import {
-  formatSubDetails,
   subDeleteCallback,
   subEditCallback,
   subPauseCallback,
   subResumeCallback,
   subViewCallback,
 } from "../src/bot/callbacks/subCallbacks.js";
+import { formatSubscriptionDetails } from "../src/utils/formatSubscription.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createUserRepository } from "../src/repositories/userRepository.js";
@@ -231,13 +231,14 @@ describe("privacy delete callbacks", () => {
 
 describe("subscription callbacks", () => {
   it("formats subscription details", () => {
-    const text = formatSubDetails(
+    const text = formatSubscriptionDetails(
       createSub({ isTrial: true, autoRenew: false }),
     );
 
     expect(text).toContain("Netflix");
     expect(text).toContain("价格：12.99 USD");
     expect(text).toContain("周期：每月");
+    expect(text).toContain("提醒：跟随默认设置");
     expect(text).toContain("类型：体验");
     expect(text).toContain("自动续费：否");
     expect(text).toContain("分类：Video");

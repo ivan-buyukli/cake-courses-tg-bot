@@ -1,71 +1,26 @@
 import { Conversation } from "@grammyjs/conversations";
 import { BotContext, BaseBotContext } from "../../types/context.js";
-import { createSubscriptionService } from "../../services/subscriptionService.js";
-import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
-import { createReminderRepository } from "../../repositories/reminderRepository.js";
-import { createLogger } from "../../utils/logger.js";
 import { BillingInterval, Subscription } from "../../models/subscription.js";
+import type { ScalarEditableField } from "../../models/subscriptionEdit.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay } from "../../utils/date.js";
 import { isCancelInput } from "../../utils/conversationInput.js";
-import {
-  buildDetailKeyboard,
-  formatDetailText,
-} from "../keyboards/listManagerKeyboard.js";
 import { parseEditCycleCallbackData } from "../../utils/callbackParser.js";
+import { formatReminderPolicy } from "../../utils/reminderPolicy.js";
 import { collectDateInput } from "./dateInput.js";
 import { collectCurrencyInput } from "./currencyInput.js";
 import { collectCycleInput } from "./cycleInput.js";
+import { forceReply, restoreMainMenu } from "../ui/conversationUi.js";
 import {
-  forceReply,
-  hideMainMenu,
-  restoreMainMenu,
-} from "../ui/conversationUi.js";
-
-interface ListManagerConversationOptions {
-  source?: "listManager";
-  page?: number;
-  panel?: {
-    chatId: number;
-    messageId: number;
-  };
-}
-
-function isFromListManager(options?: ListManagerConversationOptions): boolean {
-  return options?.source === "listManager";
-}
-
-async function replyWithListManagerDetail(
-  ctx: BaseBotContext,
-  sub: Subscription,
-  page: number,
-): Promise<void> {
-  await ctx.reply(formatDetailText(sub), {
-    reply_markup: buildDetailKeyboard(sub, page),
-  });
-}
-
-async function updateListManagerDetail(
-  ctx: BaseBotContext,
-  sub: Subscription,
-  page: number,
-  panel?: { chatId: number; messageId: number },
-): Promise<void> {
-  if (!panel) {
-    await replyWithListManagerDetail(ctx, sub, page);
-    return;
-  }
-  try {
-    await ctx.api.editMessageText(
-      panel.chatId,
-      panel.messageId,
-      formatDetailText(sub),
-      { reply_markup: buildDetailKeyboard(sub, page) },
-    );
-  } catch {
-    await replyWithListManagerDetail(ctx, sub, page);
-  }
-}
+  beginSubscriptionConversation,
+  completeSubscriptionConversation,
+  saveConversationSubscription,
+  type ListManagerConversationOptions,
+} from "./subscriptionConversation.js";
+import {
+  collectReminderPolicyInput,
+  reminderPolicyKeyboard,
+} from "./reminderPolicyInput.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts an edit flow and never completes it, the conversation
@@ -95,50 +50,26 @@ export async function editFieldConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   subId: string,
-  field: "name" | "price" | "currency" | "date",
+  field: ScalarEditableField,
   options?: ListManagerConversationOptions,
 ): Promise<void> {
-  // grammY conversations do not inherit custom middleware properties.
-  // Read required fields from the outside context via external().
-  const ctxData = await conversation.external((outsideCtx) => ({
-    userKey: outsideCtx.userKey ?? null,
-    encryptionKey: outsideCtx.env.ENCRYPTION_KEY,
-    requestId: outsideCtx.requestId,
-  }));
+  const started = await beginSubscriptionConversation(
+    conversation,
+    ctx,
+    subId,
+    "正在编辑订阅。可随时发送 /cancel 或“取消”退出。",
+  );
+  if (!started) return;
+  const { session, sub } = started;
 
-  if (!ctxData.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
-    return;
-  }
-
-  const userKey = ctxData.userKey;
-  const encryptionKey = ctxData.encryptionKey;
-  const logger = createLogger(ctxData.requestId);
-  await hideMainMenu(ctx, "正在编辑订阅。可随时发送 /cancel 或“取消”退出。");
-
-  const sub = await conversation.external(async (outsideCtx) => {
-    const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(
-      outsideCtx.env.SUBSCRIPTION_KV,
-    );
-    const service = createSubscriptionService(repo, reminderRepo);
-    return service.get(userKey, subId, encryptionKey);
-  });
-
-  if (!sub) {
-    await ctx.reply("没有找到这个订阅，或它已被删除。");
-    await restoreMainMenu(ctx);
-    return;
-  }
-
-  const fieldLabels: Record<string, string> = {
+  const fieldLabels: Record<ScalarEditableField, string> = {
     name: "名称",
     price: "价格",
     currency: "币种",
     date: "下次扣款日期",
   };
 
-  const promptMap: Record<"name" | "price" | "currency" | "date", string> = {
+  const promptMap: Record<ScalarEditableField, string> = {
     name: `当前名称：${sub.name}\n请发送新名称。`,
     price:
       sub.price !== undefined
@@ -222,38 +153,19 @@ export async function editFieldConversation(
     updated.billingAnchorDay = getBillingAnchorDay(selectedDate);
   }
 
-  await conversation.external(async (outsideCtx) => {
-    const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(
-      outsideCtx.env.SUBSCRIPTION_KV,
-    );
-    const service = createSubscriptionService(repo, reminderRepo);
-    await service.update(userKey, updated, encryptionKey);
-  });
+  await saveConversationSubscription(conversation, session, updated);
 
-  logger.info("Subscription field updated via conversation", {
+  session.logger.info("Subscription field updated via conversation", {
     subId,
     field,
   });
-
-  if (isFromListManager(options)) {
-    await updateListManagerDetail(
-      ctx,
-      updated,
-      options?.page ?? 0,
-      options?.panel,
-    );
-    await restoreMainMenu(
-      ctx,
-      `✅ 已保存“${updated.name}”的${fieldLabels[field]}。`,
-    );
-    return;
-  }
-
-  await ctx.reply(
+  await completeSubscriptionConversation(
+    ctx,
+    updated,
+    options,
+    `✅ 已保存“${updated.name}”的${fieldLabels[field]}。`,
     `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /list 查看结果。`,
   );
-  await restoreMainMenu(ctx);
 }
 
 export async function editCycleConversation(
@@ -262,41 +174,14 @@ export async function editCycleConversation(
   subId: string,
   options?: ListManagerConversationOptions,
 ): Promise<void> {
-  // grammY conversations do not inherit custom middleware properties.
-  // Read required fields from the outside context via external().
-  const ctxData = await conversation.external((outsideCtx) => ({
-    userKey: outsideCtx.userKey ?? null,
-    encryptionKey: outsideCtx.env.ENCRYPTION_KEY,
-    requestId: outsideCtx.requestId,
-  }));
-
-  if (!ctxData.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
-    return;
-  }
-
-  const userKey = ctxData.userKey;
-  const encryptionKey = ctxData.encryptionKey;
-  const logger = createLogger(ctxData.requestId);
-  await hideMainMenu(
+  const started = await beginSubscriptionConversation(
+    conversation,
     ctx,
+    subId,
     "正在编辑扣款周期。可随时发送 /cancel 或“取消”退出。",
   );
-
-  const sub = await conversation.external(async (outsideCtx) => {
-    const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(
-      outsideCtx.env.SUBSCRIPTION_KV,
-    );
-    const service = createSubscriptionService(repo, reminderRepo);
-    return service.get(userKey, subId, encryptionKey);
-  });
-
-  if (!sub) {
-    await ctx.reply("没有找到这个订阅，或它已被删除。");
-    await restoreMainMenu(ctx);
-    return;
-  }
+  if (!started) return;
+  const { session, sub } = started;
 
   const cycleSelection = await collectCycleInput(conversation, ctx, {
     prompt: "请选择新的扣款周期：",
@@ -324,39 +209,67 @@ export async function editCycleConversation(
     updatedAt: now,
   };
 
-  await conversation.external(async (outsideCtx) => {
-    const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(
-      outsideCtx.env.SUBSCRIPTION_KV,
-    );
-    const service = createSubscriptionService(repo, reminderRepo);
-    await service.update(userKey, updated, encryptionKey);
+  await saveConversationSubscription(conversation, session, updated);
+
+  session.logger.info("Subscription cycle updated via conversation", {
+    subId,
+    cycle,
   });
+  const cycleLabel = formatBillingCycle(cycle, billingInterval);
+  await completeSubscriptionConversation(
+    ctx,
+    updated,
+    options,
+    `✅ 已将“${updated.name}”的周期更新为${cycleLabel}。`,
+    `已将“${updated.name}”的周期更新为${cycleLabel}。\n发送 /list 查看结果。`,
+  );
+}
 
-  logger.info("Subscription cycle updated via conversation", { subId, cycle });
+export async function editReminderConversation(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+  subId: string,
+  options?: ListManagerConversationOptions,
+): Promise<void> {
+  const started = await beginSubscriptionConversation(
+    conversation,
+    ctx,
+    subId,
+    "正在编辑提醒方式。可随时发送 /cancel 或“取消”退出。",
+  );
+  if (!started) return;
+  const { session, sub } = started;
 
-  if (isFromListManager(options)) {
-    await updateListManagerDetail(
-      ctx,
-      updated,
-      options?.page ?? 0,
-      options?.panel,
-    );
-    await restoreMainMenu(
-      ctx,
-      `✅ 已将“${updated.name}”的周期更新为${formatBillingCycle(
-        cycle,
-        billingInterval,
-      )}。`,
-    );
+  await ctx.reply(
+    `当前提醒方式：${formatReminderPolicy(sub)}\n\n请选择新的提醒方式：`,
+    { reply_markup: reminderPolicyKeyboard(subId, sub.reminderPolicy) },
+  );
+  const reminderPolicy = await collectReminderPolicyInput(
+    conversation,
+    ctx,
+    subId,
+  );
+  if (reminderPolicy === null) {
+    await restoreMainMenu(ctx);
     return;
   }
 
-  await ctx.reply(
-    `已将“${updated.name}”的周期更新为${formatBillingCycle(
-      cycle,
-      billingInterval,
-    )}。\n发送 /list 查看结果。`,
+  const updated: Subscription = {
+    ...sub,
+    reminderPolicy,
+    updatedAt: new Date().toISOString(),
+  };
+  await saveConversationSubscription(conversation, session, updated);
+  session.logger.info("Subscription reminder policy updated via conversation", {
+    subId,
+    policy: reminderPolicy?.mode ?? "inherit",
+  });
+  const policyLabel = formatReminderPolicy(updated);
+  await completeSubscriptionConversation(
+    ctx,
+    updated,
+    options,
+    `✅ 已将“${updated.name}”的提醒方式设为：${policyLabel}。`,
+    `已将“${updated.name}”的提醒方式设为：${policyLabel}。\n发送 /list 查看结果。`,
   );
-  await restoreMainMenu(ctx);
 }

@@ -128,6 +128,22 @@ describe("list manager callbacks", () => {
     });
   });
 
+  it("passes the source panel into reminder policy editing", async () => {
+    const ctx = createListCallbackContext("list:ef:reminder:sub-1:1");
+
+    await listEditFieldCallback(ctx as any);
+
+    expect(ctx.conversation.enter).toHaveBeenCalledWith(
+      "editReminder",
+      "sub-1",
+      {
+        source: "listManager",
+        page: 1,
+        panel: { chatId: 123, messageId: 99 },
+      },
+    );
+  });
+
   it("enters editing without mutating the source panel first", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const ctx = createListCallbackContext("list:ef:price:sub-1:0", {
@@ -306,6 +322,7 @@ describe("list manager keyboards", () => {
 
     expect(labels).toContain("名称");
     expect(labels).toContain("下次扣款日期");
+    expect(labels).toContain("提醒方式");
     expect(labels).not.toContain("切换体验");
     expect(labels).not.toContain("切换自动续费");
     expect(keyboardButtons(keyboard)).not.toContainEqual({

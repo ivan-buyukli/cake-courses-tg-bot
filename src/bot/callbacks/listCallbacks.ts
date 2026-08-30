@@ -8,12 +8,12 @@ import {
   getTotalPages,
   buildListPageText,
   buildListPageKeyboard,
-  formatDetailText,
   buildDetailKeyboard,
   buildEditFieldKeyboard,
   buildDeleteConfirmKeyboard,
 } from "../keyboards/listManagerKeyboard.js";
 import type { Subscription } from "../../models/subscription.js";
+import { formatSubscriptionDetails } from "../../utils/formatSubscription.js";
 import { InlineKeyboard } from "grammy";
 import {
   emptySubscriptionsKeyboard,
@@ -116,7 +116,7 @@ async function showDetail(
   sub: Subscription,
   page: number,
 ): Promise<void> {
-  const text = formatDetailText(sub);
+  const text = formatSubscriptionDetails(sub);
   const keyboard = buildDetailKeyboard(sub, page);
   await safeEditMessageText(ctx, text, { reply_markup: keyboard });
 }
@@ -750,29 +750,21 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
       return;
     }
 
-    if (field === "cycle") {
-      await safeAnswerCallbackQuery(ctx);
-      await ctx.conversation.enter("editCycle", subId, {
-        source: "listManager",
-        page,
-        panel: currentPanel(ctx),
-      });
-      return;
+    const options = {
+      source: "listManager" as const,
+      page,
+      panel: currentPanel(ctx),
+    };
+    switch (field) {
+      case "cycle":
+        await ctx.conversation.enter("editCycle", subId, options);
+        return;
+      case "reminder":
+        await ctx.conversation.enter("editReminder", subId, options);
+        return;
+      default:
+        await ctx.conversation.enter("editField", subId, field, options);
     }
-
-    if (["name", "price", "currency", "date"].includes(field)) {
-      await safeAnswerCallbackQuery(ctx);
-      await ctx.conversation.enter(
-        "editField",
-        subId,
-        field as "name" | "price" | "currency" | "date",
-        { source: "listManager", page, panel: currentPanel(ctx) },
-      );
-      return;
-    }
-
-    await safeAnswerCallbackQuery(ctx, "未知的编辑字段。");
-    logger.warn("Unknown edit field in list callback", { field });
   } catch (error) {
     logger.error("Error in listEditFieldCallback", {
       error: error instanceof Error ? error.message : String(error),

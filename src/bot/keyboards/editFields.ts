@@ -1,6 +1,7 @@
 import { InlineKeyboard } from "grammy";
+import type { EditableField } from "../../models/subscriptionEdit.js";
 
-export type EditableField = "name" | "price" | "currency" | "cycle" | "date";
+export type { EditableField } from "../../models/subscriptionEdit.js";
 
 export const EDITABLE_FIELDS: readonly {
   field: EditableField;
@@ -11,6 +12,7 @@ export const EDITABLE_FIELDS: readonly {
   { field: "currency", label: "币种" },
   { field: "cycle", label: "周期" },
   { field: "date", label: "下次扣款日期" },
+  { field: "reminder", label: "提醒方式" },
 ];
 
 export function editableFieldsKeyboard({

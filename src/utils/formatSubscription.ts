@@ -1,11 +1,14 @@
 import type { Subscription } from "../models/subscription.js";
 import { shortId } from "./shortId.js";
-import { formatBillingCycle } from "./labels.js";
+import { formatBillingCycle, formatStatus } from "./labels.js";
 import { formatDate } from "./date.js";
 import {
+  formatAutoRenew,
   formatBillingDateLabel,
   formatStatusPrefix,
+  formatSubscriptionType,
 } from "./subscriptionFlags.js";
+import { formatReminderPolicy } from "./reminderPolicy.js";
 
 function formatPrice(sub: Subscription): string {
   if (sub.price !== undefined && sub.currency) {
@@ -67,4 +70,22 @@ export function formatSubscriptionFullLine(
     `ID：${shortId(sub.id)}`,
   ].filter(Boolean);
   return `${index + 1}. ${parts.join(" — ")}`;
+}
+
+export function formatSubscriptionDetails(sub: Subscription): string {
+  const lines: string[] = [`${formatStatusPrefix(sub)}${sub.name}`];
+  if (sub.price !== undefined) {
+    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
+  }
+  lines.push(
+    `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
+    `类型：${formatSubscriptionType(sub)}`,
+    `自动续费：${formatAutoRenew(sub)}`,
+    `${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`,
+    `提醒：${formatReminderPolicy(sub)}`,
+    `状态：${formatStatus(sub.status)}`,
+  );
+  if (sub.category) lines.push(`分类：${sub.category}`);
+  if (sub.note) lines.push(`备注：${sub.note}`);
+  return lines.join("\n");
 }

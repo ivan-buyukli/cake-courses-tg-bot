@@ -10,6 +10,7 @@ import {
   parseCycleIntervalCallbackData,
   parseAddDateCallbackData,
   parseEditCycleCallbackData,
+  parseEditReminderCallbackData,
   parseListCallbackData,
   parseSettingsCallbackData,
 } from "../src/utils/callbackParser.js";
@@ -108,6 +109,9 @@ describe("parseEditCallbackData", () => {
   });
   it("returns null for missing subId", () => {
     expect(parseEditCallbackData("edit:name")).toBeNull();
+  });
+  it("returns null for unknown fields", () => {
+    expect(parseEditCallbackData("edit:unknown:abc-123")).toBeNull();
   });
 });
 
@@ -297,6 +301,27 @@ describe("parseEditCycleCallbackData", () => {
   });
 });
 
+describe("parseEditReminderCallbackData", () => {
+  it("parses inherited and one-day policies", () => {
+    expect(
+      parseEditReminderCallbackData("editreminder:inherit:abc-123"),
+    ).toEqual({ action: "inherit", subId: "abc-123" });
+    expect(parseEditReminderCallbackData("editreminder:once1:abc-123")).toEqual(
+      { action: "once1", subId: "abc-123" },
+    );
+  });
+
+  it("handles subIds with colons and rejects invalid actions", () => {
+    expect(
+      parseEditReminderCallbackData("editreminder:cancel:abc:123"),
+    ).toEqual({ action: "cancel", subId: "abc:123" });
+    expect(
+      parseEditReminderCallbackData("editreminder:daily:abc-123"),
+    ).toBeNull();
+    expect(parseEditReminderCallbackData("editreminder:once1:")).toBeNull();
+  });
+});
+
 describe("parseListCallbackData", () => {
   describe("page action", () => {
     it("parses page callback", () => {
@@ -449,6 +474,9 @@ describe("parseListCallbackData", () => {
     });
     it("returns null for negative page", () => {
       expect(parseListCallbackData("list:ef:name:abc-123:-1")).toBeNull();
+    });
+    it("returns null for unknown fields", () => {
+      expect(parseListCallbackData("list:ef:unknown:abc-123:0")).toBeNull();
     });
   });
 

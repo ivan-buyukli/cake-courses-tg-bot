@@ -17,4 +17,28 @@ describe("subscriptionInputSchema", () => {
     expect(parsed.isTrial).toBe(true);
     expect(parsed.autoRenew).toBe(false);
   });
+
+  it("accepts the one-day single reminder override", () => {
+    const parsed = subscriptionInputSchema.parse({
+      name: "Daily service",
+      billingCycle: "weekly",
+      nextBillingDate: "2026-06-01",
+      status: "active",
+      reminderPolicy: { mode: "once", daysBefore: 1 },
+    });
+
+    expect(parsed.reminderPolicy).toEqual({ mode: "once", daysBefore: 1 });
+  });
+
+  it("rejects unsupported reminder overrides", () => {
+    expect(() =>
+      subscriptionInputSchema.parse({
+        name: "Daily service",
+        billingCycle: "weekly",
+        nextBillingDate: "2026-06-01",
+        status: "active",
+        reminderPolicy: { mode: "once", daysBefore: 2 },
+      }),
+    ).toThrow();
+  });
 });

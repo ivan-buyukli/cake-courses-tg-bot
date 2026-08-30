@@ -92,7 +92,7 @@ export function parseReminderCallbackData(
 }
 
 export interface EditCallbackData {
-  field: string;
+  field: EditCallbackField;
   subId: string;
 }
 
@@ -110,7 +110,7 @@ export function parseEditCallbackData(
   const rest = callbackData.slice(prefix.length);
   const [field, ...subIdParts] = rest.split(":");
   const subId = subIdParts.join(":");
-  if (!subId) return null;
+  if (!subId || !isEditCallbackField(field)) return null;
   return { field, subId };
 }
 
@@ -323,6 +323,30 @@ export function parseEditCycleCallbackData(
   return { cycle, subId };
 }
 
+export type EditReminderPolicyAction = "inherit" | "once1" | "cancel";
+
+/**
+ * Parse project reminder policy callback data.
+ *
+ * Expected format: editreminder:<inherit|once1|cancel>:<subId>
+ */
+export function parseEditReminderCallbackData(
+  callbackData: string,
+): { action: EditReminderPolicyAction; subId: string } | null {
+  const prefix = "editreminder:";
+  if (!callbackData.startsWith(prefix)) return null;
+  const rest = callbackData.slice(prefix.length);
+  const [action, ...subIdParts] = rest.split(":");
+  const subId = subIdParts.join(":");
+  if (
+    !subId ||
+    (action !== "inherit" && action !== "once1" && action !== "cancel")
+  ) {
+    return null;
+  }
+  return { action, subId };
+}
+
 export interface PrivacyCallbackData {
   action: "delete_confirm" | "delete_cancel";
 }
@@ -445,7 +469,12 @@ export type ListCallbackData =
   | { action: "del"; subId: string; page: number }
   | { action: "delok"; subId: string; page: number }
   | { action: "delno"; subId: string; page: number }
-  | { action: "editField"; subId: string; field: string; page: number };
+  | {
+      action: "editField";
+      subId: string;
+      field: ListEditableField;
+      page: number;
+    };
 
 /**
  * Parse list manager callback data.
@@ -508,9 +537,22 @@ export function parseListCallbackData(
     const subIdParts = parts.slice(1, parts.length - 1);
     const subId = subIdParts.join(":");
     const page = Number(pageStr);
-    if (!field || !subId || !Number.isFinite(page) || page < 0) return null;
+    if (
+      !isListEditableField(field) ||
+      !subId ||
+      !Number.isFinite(page) ||
+      page < 0
+    ) {
+      return null;
+    }
     return { action: "editField", subId, field, page };
   }
 
   return null;
 }
+import {
+  isEditCallbackField,
+  isListEditableField,
+  type EditCallbackField,
+  type ListEditableField,
+} from "../models/subscriptionEdit.js";

@@ -1,11 +1,6 @@
 import { InlineKeyboard } from "grammy";
 import type { Subscription } from "../../models/subscription.js";
-import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
 import {
-  formatAutoRenew,
-  formatBillingDateLabel,
-  formatStatusPrefix,
-  formatSubscriptionType,
   isAutoRenewing,
   isTrialSubscription,
 } from "../../utils/subscriptionFlags.js";
@@ -63,23 +58,6 @@ export function buildListPageKeyboard(
   }
 
   return kb;
-}
-
-export function formatDetailText(sub: Subscription): string {
-  const lines: string[] = [`${formatStatusPrefix(sub)}${sub.name}`];
-  if (sub.price !== undefined) {
-    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
-  }
-  lines.push(
-    `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
-  );
-  lines.push(`类型：${formatSubscriptionType(sub)}`);
-  lines.push(`自动续费：${formatAutoRenew(sub)}`);
-  lines.push(`${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`);
-  lines.push(`状态：${formatStatus(sub.status)}`);
-  if (sub.category) lines.push(`分类：${sub.category}`);
-  if (sub.note) lines.push(`备注：${sub.note}`);
-  return lines.join("\n");
 }
 
 export function buildDetailKeyboard(

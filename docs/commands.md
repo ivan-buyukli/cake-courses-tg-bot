@@ -97,7 +97,9 @@ The `/list` manager actions include:
 - Enable or disable auto-renewal
 - Back to list
 
-The edit menu supports name, price, currency, cycle, and next billing date.
+The edit menu supports name, price, currency, cycle, next billing date, and
+project-level reminder policy. Reminder policy can inherit the default repeated
+window or send only once, one day before billing.
 
 **Interactive mode**:
 Click **编辑** from a `/list` detail view. Text/date/cycle edits receive a
@@ -162,6 +164,11 @@ Lists subscriptions with upcoming renewals within the configured reminder window
 Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. This command uses the compact list label `扣款日`.
 
 Scheduled delivery starts `REMINDER_DAYS_AHEAD` days before the billing date and repeats once per user-local day through the billing date. With the default value of `3`, eligible dates are D-3, D-2, D-1, and D. Failed Telegram sends are not marked as delivered and remain retryable during the same local dispatch window.
+
+A subscription can override this behavior from `/list` → **编辑** →
+**提醒方式**. The one-day override sends only at D-1 and does not send again on
+the billing date. Subscriptions without an override continue to inherit the
+default reminder window.
 
 Scheduled reminder messages include an inline **已续费一个周期** action when the bot can calculate the next billing date. It advances that subscription by one cycle, updates the reminder index, and ignores stale clicks from older reminder messages.
 

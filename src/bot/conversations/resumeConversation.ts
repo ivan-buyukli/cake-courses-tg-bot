@@ -11,56 +11,12 @@ import {
   isAutoRenewing,
   isTrialSubscription,
 } from "../../utils/subscriptionFlags.js";
-import {
-  buildDetailKeyboard,
-  formatDetailText,
-} from "../keyboards/listManagerKeyboard.js";
 import { hideMainMenu, restoreMainMenu } from "../ui/conversationUi.js";
-
-interface ResumeConversationOptions {
-  source?: "listManager";
-  page?: number;
-  panel?: {
-    chatId: number;
-    messageId: number;
-  };
-}
-
-function isFromListManager(options?: ResumeConversationOptions): boolean {
-  return options?.source === "listManager";
-}
-
-async function replyWithListManagerDetail(
-  ctx: BaseBotContext,
-  sub: Parameters<typeof formatDetailText>[0],
-  page: number,
-): Promise<void> {
-  await ctx.reply(formatDetailText(sub), {
-    reply_markup: buildDetailKeyboard(sub, page),
-  });
-}
-
-async function updateListManagerDetail(
-  ctx: BaseBotContext,
-  sub: Parameters<typeof formatDetailText>[0],
-  page: number,
-  panel?: { chatId: number; messageId: number },
-): Promise<void> {
-  if (!panel) {
-    await replyWithListManagerDetail(ctx, sub, page);
-    return;
-  }
-  try {
-    await ctx.api.editMessageText(
-      panel.chatId,
-      panel.messageId,
-      formatDetailText(sub),
-      { reply_markup: buildDetailKeyboard(sub, page) },
-    );
-  } catch {
-    await replyWithListManagerDetail(ctx, sub, page);
-  }
-}
+import {
+  isFromListManager,
+  updateListManagerDetail,
+  type ListManagerConversationOptions,
+} from "./subscriptionConversation.js";
 
 function retainedStatusLabels(sub: Subscription): string[] {
   const labels: string[] = [];
@@ -113,7 +69,7 @@ export async function resumeConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   subId: string,
-  options?: ResumeConversationOptions,
+  options?: ListManagerConversationOptions,
 ): Promise<void> {
   const ctxData = await conversation.external((outsideCtx) => ({
     userKey: outsideCtx.userKey ?? null,
@@ -147,12 +103,7 @@ export async function resumeConversation(
   if (sub.status === "active") {
     await ctx.reply(`"${sub.name}" 已经是${formatStatus("active")}状态。`);
     if (isFromListManager(options)) {
-      await updateListManagerDetail(
-        ctx,
-        sub,
-        options?.page ?? 0,
-        options?.panel,
-      );
+      await updateListManagerDetail(ctx, sub, options.page, options.panel);
     }
     await restoreMainMenu(ctx);
     return;
@@ -191,7 +142,7 @@ async function resumeWithDate(
     options,
   }: {
     newDate: string;
-    options?: ResumeConversationOptions;
+    options?: ListManagerConversationOptions;
   },
 ): Promise<void> {
   const resumed = await conversation.external(async (outsideCtx) => {
@@ -210,12 +161,7 @@ async function resumeWithDate(
   }
 
   if (isFromListManager(options)) {
-    await updateListManagerDetail(
-      ctx,
-      resumed,
-      options?.page ?? 0,
-      options?.panel,
-    );
+    await updateListManagerDetail(ctx, resumed, options.page, options.panel);
     await restoreMainMenu(ctx, `✅ ${buildResumeSuccessMessage(resumed)}`);
     return;
   }
