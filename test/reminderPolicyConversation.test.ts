@@ -145,11 +145,8 @@ describe("editReminderConversation", () => {
 
     const updated = await service.get("user-1", "sub-1", VALID_KEY);
     expect(updated?.reminderPolicy).toEqual({ mode: "once", daysBefore: 1 });
-    expect(reply).toHaveBeenCalledWith(
-      expect.stringContaining("发送 /list 查看结果"),
-    );
     expect(reply).toHaveBeenLastCalledWith(
-      "已恢复主菜单。",
+      expect.stringContaining("提醒方式设为"),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -205,8 +202,83 @@ describe("editReminderConversation", () => {
     expect(editMessageText).toHaveBeenCalledWith(
       123,
       456,
-      expect.stringContaining("提醒：跟随默认设置"),
+      expect.objectContaining({
+        blocks: expect.arrayContaining([
+          expect.objectContaining({
+            type: "table",
+            cells: expect.arrayContaining([
+              [
+                expect.objectContaining({ text: "提醒" }),
+                expect.objectContaining({ text: "跟随默认设置" }),
+              ],
+            ]),
+          }),
+        ]),
+      }),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
+  });
+});
+
+describe("settings overview conversation", () => {
+  it("reads outside context and refreshes displayed values after saving", async () => {
+    const { settingsConversation } = await import(
+      "../src/bot/conversations/settingsConversation.js"
+    );
+    const { createUserRepository } = await import(
+      "../src/repositories/userRepository.js"
+    );
+    const kv = createMockKV();
+    const env = createEnv(kv);
+    const outside = {
+      userKey: "settings-user",
+      env,
+      requestId: "settings-test",
+    } as BotContext;
+    const updates = [
+      "settings:toggle_reminder",
+      "settings:hour:10",
+      "settings:done",
+    ].map((data) => ({
+      callbackQuery: { data },
+      answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
+      editMessageText: vi.fn().mockResolvedValue(true),
+    }));
+    const external = vi.fn(async (callback: (ctx: BotContext) => unknown) =>
+      callback(outside),
+    );
+    const conversation = {
+      external,
+      wait: vi
+        .fn()
+        .mockResolvedValueOnce(updates[0])
+        .mockResolvedValueOnce(updates[1])
+        .mockResolvedValueOnce(updates[2]),
+    } as unknown as Conversation<BotContext, BaseBotContext>;
+    const ctx = {
+      chat: { id: 123, type: "private" },
+      reply: vi.fn().mockResolvedValue({ message_id: 1, chat: { id: 123 } }),
+      api: {
+        sendRichMessage: vi
+          .fn()
+          .mockResolvedValue({ message_id: 2, chat: { id: 123 } }),
+        editMessageText: vi.fn().mockResolvedValue(true),
+      },
+    } as unknown as BaseBotContext;
+    await settingsConversation(conversation, ctx);
+    const settings = await createUserRepository(kv).getUserSettings(
+      "settings-user",
+      VALID_KEY,
+    );
+    expect(settings.reminderEnabled).toBe(false);
+    expect(settings.reminderHour).toBe(10);
+    expect(external).toHaveBeenCalled();
+    expect(
+      JSON.stringify(updates[0].editMessageText.mock.calls[0][0]),
+    ).toContain("关闭");
+    expect(
+      JSON.stringify(updates[1].editMessageText.mock.calls[0][0]),
+    ).toContain("10:00");
+    expect(ctx.api.sendRichMessage).toHaveBeenCalledTimes(1);
   });
 });

@@ -164,7 +164,7 @@ export async function editFieldConversation(
     updated,
     options,
     `✅ 已保存“${updated.name}”的${fieldLabels[field]}。`,
-    `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /list 查看结果。`,
+    `已更新“${updated.name}”的${fieldLabels[field]}。`,
   );
 }
 
@@ -221,7 +221,7 @@ export async function editCycleConversation(
     updated,
     options,
     `✅ 已将“${updated.name}”的周期更新为${cycleLabel}。`,
-    `已将“${updated.name}”的周期更新为${cycleLabel}。\n发送 /list 查看结果。`,
+    `已将“${updated.name}”的周期更新为${cycleLabel}。`,
   );
 }
 
@@ -270,6 +270,6 @@ export async function editReminderConversation(
     updated,
     options,
     `✅ 已将“${updated.name}”的提醒方式设为：${policyLabel}。`,
-    `已将“${updated.name}”的提醒方式设为：${policyLabel}。\n发送 /list 查看结果。`,
+    `已将“${updated.name}”的提醒方式设为：${policyLabel}。`,
   );
 }

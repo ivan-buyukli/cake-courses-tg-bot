@@ -137,7 +137,7 @@ describe("bot command integration", () => {
     await bot.handleUpdate(messageUpdate(2, userId, "/reminders"));
 
     expect(
-      sentMessages.some((msg) => JSON.stringify(msg).includes("近期扣款")),
+      sentMessages.some((msg) => JSON.stringify(msg).includes("近期提醒")),
     ).toBe(true);
     expect(
       sentMessages.some((msg) => JSON.stringify(msg).includes("Netflix")),

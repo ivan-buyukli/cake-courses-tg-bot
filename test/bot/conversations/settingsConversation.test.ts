@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   settingsKeyboard,
+  settingsPresentation,
   hourPickerKeyboard,
   timezoneKeyboard,
   timezoneOffsetKeyboard,
@@ -26,10 +27,10 @@ describe("settingsConversation", () => {
       expect(texts.some((t) => t.includes("提醒"))).toBe(true);
       expect(texts.some((t) => t.includes("时间"))).toBe(true);
       expect(texts.some((t) => t.includes("时区"))).toBe(true);
-      expect(texts).toContain("✅ 完成");
+      expect(texts).toContain("完成");
     });
 
-    it("shows ON when reminders are enabled", () => {
+    it("offers disabling when reminders are enabled", () => {
       const settings: UserSettings = {
         ...DEFAULT_USER_SETTINGS,
         reminderEnabled: true,
@@ -37,10 +38,10 @@ describe("settingsConversation", () => {
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
       const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
-      expect(reminderBtn?.text).toContain("开启");
+      expect(reminderBtn?.text).toBe("关闭提醒");
     });
 
-    it("shows OFF when reminders are disabled", () => {
+    it("offers enabling when reminders are disabled", () => {
       const settings: UserSettings = {
         ...DEFAULT_USER_SETTINGS,
         reminderEnabled: false,
@@ -48,7 +49,7 @@ describe("settingsConversation", () => {
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
       const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
-      expect(reminderBtn?.text).toContain("关闭");
+      expect(reminderBtn?.text).toBe("开启提醒");
     });
 
     it("shows current hour in HH:00 format", () => {
@@ -59,7 +60,8 @@ describe("settingsConversation", () => {
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
       const timeBtn = buttons.find((b) => b.text.includes("时间"));
-      expect(timeBtn?.text).toContain("09:00");
+      expect(timeBtn?.text).toBe("提醒时间");
+      expect(settingsPresentation(settings).plainText).toContain("09:00");
     });
 
     it("shows current currency and timezone", () => {
@@ -72,8 +74,11 @@ describe("settingsConversation", () => {
       const buttons = kb.inline_keyboard.flat();
       const texts = buttons.map((b) => b.text);
 
-      expect(texts.some((t) => t.includes("CNY"))).toBe(true);
-      expect(texts.some((t) => t.includes("Asia/Shanghai"))).toBe(true);
+      expect(texts).not.toContain("CNY");
+      expect(settingsPresentation(settings).plainText).toContain("CNY");
+      expect(settingsPresentation(settings).plainText).toContain(
+        "Asia/Shanghai",
+      );
     });
   });
 

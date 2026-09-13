@@ -6,14 +6,15 @@ import { createLogger } from "../../utils/logger.js";
 import { parseListCallbackData } from "../../utils/callbackParser.js";
 import {
   getTotalPages,
-  buildListPageText,
-  buildListPageKeyboard,
-  buildDetailKeyboard,
   buildEditFieldKeyboard,
   buildDeleteConfirmKeyboard,
 } from "../keyboards/listManagerKeyboard.js";
 import type { Subscription } from "../../models/subscription.js";
-import { formatSubscriptionDetails } from "../../utils/formatSubscription.js";
+import {
+  listPresentation,
+  detailPresentation,
+} from "../ui/subscriptionPresentation.js";
+import { editRichOrPlain, editPlainMessage } from "../ui/richMessage.js";
 import { InlineKeyboard } from "grammy";
 import {
   emptySubscriptionsKeyboard,
@@ -44,11 +45,7 @@ async function safeEditMessageText(
   text: string,
   options?: { reply_markup?: InlineKeyboard },
 ): Promise<void> {
-  try {
-    await ctx.editMessageText(text, options);
-  } catch {
-    // Message may have been deleted or already edited
-  }
+  await editPlainMessage(ctx, text, options);
 }
 
 function isPanelExpired(ctx: BotContext): boolean {
@@ -106,9 +103,7 @@ async function showListPage(
   if (adjustedPage >= tp) {
     adjustedPage = Math.max(0, tp - 1);
   }
-  const text = buildListPageText(adjustedPage, tp);
-  const keyboard = buildListPageKeyboard(subs, adjustedPage);
-  await safeEditMessageText(ctx, text, { reply_markup: keyboard });
+  await editRichOrPlain(ctx, listPresentation(subs, adjustedPage));
 }
 
 async function showDetail(
@@ -116,9 +111,7 @@ async function showDetail(
   sub: Subscription,
   page: number,
 ): Promise<void> {
-  const text = formatSubscriptionDetails(sub);
-  const keyboard = buildDetailKeyboard(sub, page);
-  await safeEditMessageText(ctx, text, { reply_markup: keyboard });
+  await editRichOrPlain(ctx, detailPresentation(sub, page));
 }
 
 export async function listPageCallback(ctx: BotContext): Promise<void> {
@@ -162,7 +155,7 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
     logger.info("List page viewed via callback", { page: parsed.page });
   } catch (error) {
     logger.error("Error in listPageCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -210,7 +203,7 @@ export async function listSelectCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in listSelectCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -269,7 +262,7 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in listDetailCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -316,7 +309,7 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
     logger.info("Back to list via callback", { page: parsed.page });
   } catch (error) {
     logger.error("Error in listBackCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -377,7 +370,7 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in listEditCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -434,7 +427,7 @@ export async function listPauseCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in listPauseCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -468,7 +461,7 @@ export async function listResumeCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in listResumeCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -527,7 +520,7 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in listDelCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -609,12 +602,10 @@ export async function listDeleteConfirmCallback(
     if (adjustedPage >= tp) {
       adjustedPage = Math.max(0, tp - 1);
     }
-    const text = `"${sub.name}"已删除。\n\n${buildListPageText(adjustedPage, tp)}`;
-    const keyboard = buildListPageKeyboard(subs, adjustedPage);
-    await safeEditMessageText(ctx, text, { reply_markup: keyboard });
+    await showListPage(ctx, subs, adjustedPage);
   } catch (error) {
     logger.error("Error in listDeleteConfirmCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -669,7 +660,7 @@ export async function listDeleteCancelCallback(ctx: BotContext): Promise<void> {
     logger.info("Delete cancelled via list callback");
   } catch (error) {
     logger.error("Error in listDeleteCancelCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -767,7 +758,7 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
     }
   } catch (error) {
     logger.error("Error in listEditFieldCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }

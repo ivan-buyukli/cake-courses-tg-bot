@@ -2,14 +2,15 @@
 
 ## Overview
 
-The Subscription Bot is a Cloudflare Worker that receives Telegram updates via webhooks, stores encrypted user data in Cloudflare KV, and sends reminders via Cron Triggers. Telegram user IDs are HMAC-hashed before they appear in KV keys.
+The Subscription Bot is a Cloudflare Worker that receives Telegram updates via webhooks, stores encrypted user data in Cloudflare KV, and delivers reminders through Cloudflare Queues after Cron Trigger scans. Telegram user IDs are HMAC-hashed before they appear in KV keys.
 
 ## Components
 
 ### Worker Entrypoint (`src/index.ts`)
 
 - `fetch`: Routes HTTP requests to health, webhook, or 404 handlers.
-- `scheduled`: Delegates to the reminder service for daily cron processing (`0 8 * * *`).
+- `scheduled`: Scans reminder indexes every 30 minutes and enqueues per-user work.
+- `queue`: Validates and consumes reminder Queue messages with explicit acknowledgement and retry behavior.
 
 ### Bot Layer (`src/bot/`)
 
@@ -24,8 +25,12 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 ### Handlers (`src/handlers/`)
 
 - `webhook.ts`: Validates Telegram secret token and passes updates to grammY.
-- `scheduled.ts`: Cron handler that sends at most one reminder per user-local day from the configured window start through the billing date, then advances eligible past-due subscriptions.
+- `scheduled.ts`: Cron producer that scans the relevant date indexes, groups entries by hashed user key, and enqueues reminder work.
 - `health.ts`: Simple health check endpoint.
+
+### Queues (`src/queues/`)
+
+- `reminderQueue.ts`: Builds bounded JSON messages, batches Queue writes, validates consumer payloads, invokes reminder processing, and explicitly acknowledges or retries every message. Messages contain only hashed user keys, subscription UUIDs, and dates.
 
 ### Services (`src/services/`)
 
@@ -106,22 +111,22 @@ The session key is the same HMAC-hashed user key used elsewhere. Session values 
 ### Reminder Flow
 
 ```
-Cron Trigger → scheduled handler → reminderService
-                                        ↓
-                              reminderRepository.listEntries(date)
-                                        ↓
-                              subscriptionRepository.get + decrypt
-                                        ↓
-                              userRepository.getUserProfile + decrypt
-                                        ↓
-                              telegramService.sendMessage
-                                        ↓
-                              reminderRepository.markSent
-                                        ↓
-                         subscriptionService.advancePastDue
+Cron Trigger → scheduled handler → reminderRepository.listEntries(date)
+                                      ↓
+                         group entries by hashed user key
+                                      ↓
+                     REMINDER_QUEUE producer binding
+                                      ↓
+                     queue consumer → validate payload
+                                      ↓
+                     subscription/profile reload + decrypt
+                                      ↓
+                     telegramService.sendMessage
+                          ↓ success             ↓ transient failure
+                  markSent + advance       retry with backoff → DLQ
 ```
 
-Paused subscriptions are skipped. Trial subscriptions and non-auto-renewing subscriptions still receive date-based reminders, but the reminder text describes a trial expiration or service expiration instead of a normal charge. After reminders are processed, the scheduled handler advances active, auto-renewing, non-trial subscriptions whose billing date is past due.
+Paused subscriptions are skipped. Trial subscriptions and non-auto-renewing subscriptions still receive date-based reminders, but the reminder text describes a trial expiration or service expiration instead of a normal charge. Active, auto-renewing, non-trial subscriptions advance after processing. Retryable Telegram failures (network errors, 401, 429, and 5xx) do not advance the billing date before a retry; permanent request failures are acknowledged so they cannot loop forever. Queue delivery is at-least-once, while existing sent markers provide best-effort duplicate suppression.
 
 ### Report Flow
 

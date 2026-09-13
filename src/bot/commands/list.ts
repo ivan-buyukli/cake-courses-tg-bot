@@ -7,11 +7,8 @@ import { formatSubscriptionLine } from "../../utils/formatSubscription.js";
 import { createLogger } from "../../utils/logger.js";
 import type { Subscription } from "../../models/subscription.js";
 import { formatDate, getLocalTimeInfo } from "../../utils/date.js";
-import {
-  getTotalPages,
-  buildListPageText,
-  buildListPageKeyboard,
-} from "../keyboards/listManagerKeyboard.js";
+import { listPresentation } from "../ui/subscriptionPresentation.js";
+import { sendRichOrPlain } from "../ui/richMessage.js";
 import { emptySubscriptionsKeyboard } from "../ui/navigation.js";
 
 const MAX_LIST_MESSAGE_LENGTH = 3900;
@@ -132,11 +129,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const tp = getTotalPages(subs);
-  const text = buildListPageText(0, tp);
-  const keyboard = buildListPageKeyboard(subs, 0);
-
-  await ctx.reply(text, { reply_markup: keyboard });
+  await sendRichOrPlain(ctx, listPresentation(subs, 0));
 
   logger.info("Listed full subscriptions (inline)", {
     count: subs.length,

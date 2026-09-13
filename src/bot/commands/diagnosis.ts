@@ -130,6 +130,34 @@ function checkKvBinding(env: Partial<Env>): DiagnosisCheck {
   };
 }
 
+function checkQueueBinding(env: Partial<Env>): DiagnosisCheck {
+  const queue = env.REMINDER_QUEUE;
+  if (!queue) {
+    return {
+      name: "REMINDER_QUEUE",
+      level: "error",
+      message: "binding missing",
+    };
+  }
+
+  if (
+    typeof queue.send !== "function" ||
+    typeof queue.sendBatch !== "function"
+  ) {
+    return {
+      name: "REMINDER_QUEUE",
+      level: "error",
+      message: "binding does not expose expected Queue methods",
+    };
+  }
+
+  return {
+    name: "REMINDER_QUEUE",
+    level: "ok",
+    message: "binding available",
+  };
+}
+
 function checkAppEnv(env: Partial<Env>): DiagnosisCheck {
   const value = env.APP_ENV;
   if (value === undefined || value === "") {
@@ -287,6 +315,7 @@ export function buildEnvironmentDiagnosisChecks(
     checkRequiredSecret("USER_HASH_SECRET", env),
     checkAdminUserId(env),
     checkKvBinding(env),
+    checkQueueBinding(env),
     checkAppEnv(env),
     checkReminderDaysAhead(env),
     checkXCurrencyApiKey(env),

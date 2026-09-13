@@ -149,7 +149,7 @@ describe("reportCommand", () => {
     expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
       expect.any(InputFile),
       expect.objectContaining({
-        caption: "订阅支出总览。发送 /report_text 查看完整明细。",
+        caption: "订阅支出总览",
         reply_markup: expect.anything(),
       }),
     );

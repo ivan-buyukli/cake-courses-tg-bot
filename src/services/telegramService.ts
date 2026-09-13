@@ -1,3 +1,5 @@
+import type { InlineKeyboardMarkup } from "grammy/types";
+import { isRichMessageRejected } from "../utils/telegramErrors.js";
 import { Env } from "../types/env.js";
 
 export interface TelegramSendResult {
@@ -6,9 +8,7 @@ export interface TelegramSendResult {
   description?: string;
 }
 
-export interface TelegramInlineKeyboardMarkup {
-  inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
-}
+export type TelegramInlineKeyboardMarkup = InlineKeyboardMarkup;
 
 export interface TelegramLinkPreviewOptions {
   is_disabled?: boolean;
@@ -59,4 +59,44 @@ export async function sendMessage(
   }
 
   return { ok: true };
+}
+
+/** Rich payloads share the existing transport result and retry contract. */
+export async function sendRichMessage(
+  env: Env,
+  chatId: number | string,
+  view: import("../bot/ui/richMessage.js").MessagePresentation,
+): Promise<TelegramSendResult> {
+  const response = await fetch(
+    `https://api.telegram.org/bot${env.BOT_TOKEN}/sendRichMessage`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        rich_message: view.richMessage,
+        reply_markup: view.replyMarkup,
+      }),
+    },
+  );
+  if (response.ok) return { ok: true };
+  let description = "";
+  try {
+    const body: unknown = await response.json();
+    if (
+      body &&
+      typeof body === "object" &&
+      "description" in body &&
+      typeof body.description === "string"
+    )
+      description = body.description;
+  } catch {
+    /* An unparseable response must retain its HTTP retry semantics. */
+  }
+  if (isRichMessageRejected(response.status, description)) {
+    return sendMessage(env, chatId, view.plainText, {
+      reply_markup: view.plainReplyMarkup ?? view.replyMarkup,
+    });
+  }
+  return { ok: false, status: response.status };
 }

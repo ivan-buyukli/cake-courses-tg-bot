@@ -4,9 +4,9 @@ import { createReminderRepository } from "../../repositories/reminderRepository.
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import type { BaseBotContext, BotContext } from "../../types/context.js";
-import { formatSubscriptionDetails } from "../../utils/formatSubscription.js";
 import { createLogger } from "../../utils/logger.js";
-import { buildDetailKeyboard } from "../keyboards/listManagerKeyboard.js";
+import { detailPresentation } from "../ui/subscriptionPresentation.js";
+import { sendRichOrPlain, editRichOrPlain } from "../ui/richMessage.js";
 import { hideMainMenu, restoreMainMenu } from "../ui/conversationUi.js";
 
 export type BotConversation = Conversation<BotContext, BaseBotContext>;
@@ -103,9 +103,7 @@ async function replyWithListManagerDetail(
   sub: Subscription,
   page: number,
 ): Promise<void> {
-  await ctx.reply(formatSubscriptionDetails(sub), {
-    reply_markup: buildDetailKeyboard(sub, page),
-  });
+  await sendRichOrPlain(ctx, detailPresentation(sub, page));
 }
 
 export async function updateListManagerDetail(
@@ -118,16 +116,7 @@ export async function updateListManagerDetail(
     await replyWithListManagerDetail(ctx, sub, page);
     return;
   }
-  try {
-    await ctx.api.editMessageText(
-      panel.chatId,
-      panel.messageId,
-      formatSubscriptionDetails(sub),
-      { reply_markup: buildDetailKeyboard(sub, page) },
-    );
-  } catch {
-    await replyWithListManagerDetail(ctx, sub, page);
-  }
+  await editRichOrPlain(ctx, detailPresentation(sub, page), panel);
 }
 
 export async function completeSubscriptionConversation(
@@ -143,6 +132,6 @@ export async function completeSubscriptionConversation(
     return;
   }
 
-  await ctx.reply(directMessage);
-  await restoreMainMenu(ctx);
+  await sendRichOrPlain(ctx, detailPresentation(sub));
+  await restoreMainMenu(ctx, directMessage);
 }

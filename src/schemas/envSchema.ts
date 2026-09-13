@@ -1,6 +1,16 @@
 import { custom, enum as zodEnum, object, string } from "zod";
 import { parseMasterKey } from "../crypto/masterKey.js";
-import type { Env } from "../types/env.js";
+import type { ReminderQueueMessage } from "../types/reminderQueue.js";
+import type { ValidatedEnv } from "../types/env.js";
+
+function hasQueueMethods(value: unknown): value is Queue<ReminderQueueMessage> {
+  if (value === null || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.send === "function" &&
+    typeof candidate.sendBatch === "function"
+  );
+}
 
 export const envSchema = object({
   BOT_TOKEN: string().min(1),
@@ -24,6 +34,7 @@ export const envSchema = object({
   USER_HASH_SECRET: string().min(1),
   ADMIN_USER_ID: string().optional(),
   SUBSCRIPTION_KV: custom<KVNamespace>((val) => val !== undefined),
+  REMINDER_QUEUE: custom<Queue<ReminderQueueMessage>>(hasQueueMethods),
   APP_ENV: zodEnum(["development", "production", "test"]).optional(),
   REMINDER_DAYS_AHEAD: string()
     .optional()
@@ -40,7 +51,7 @@ export const envSchema = object({
   XCURRENCY_API_KEY: string().optional(),
 });
 
-export function validateEnv(env: unknown): Env {
+export function validateEnv(env: unknown): ValidatedEnv {
   const result = envSchema.safeParse(env);
 
   if (!result.success) {
@@ -52,5 +63,5 @@ export function validateEnv(env: unknown): Env {
     throw new Error(`Invalid environment configuration: ${fields.join(", ")}`);
   }
 
-  return result.data as Env;
+  return result.data as ValidatedEnv;
 }

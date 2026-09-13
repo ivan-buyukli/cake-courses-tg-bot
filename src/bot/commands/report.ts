@@ -77,7 +77,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     await ctx.replyWithPhoto(
       new InputFile(overviewPng, "subscription-spending-overview.png"),
       {
-        caption: "订阅支出总览。发送 /report_text 查看完整明细。",
+        caption: "订阅支出总览",
         reply_markup: reportActionsKeyboard(),
       },
     );

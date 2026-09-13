@@ -122,3 +122,70 @@ describe("telegramService.sendMessage", () => {
     expect(result.description).toBeUndefined();
   });
 });
+
+describe("telegramService rich message fallback", () => {
+  const view = {
+    richMessage: { blocks: [{ type: "paragraph" as const, text: "订阅" }] },
+    plainText: "订阅",
+    replyMarkup: {
+      inline_keyboard: [[{ text: "管理", callback_data: "nav:list" }]],
+    },
+  };
+  it("sends a plain fallback with controls for a rich-format rejection", async () => {
+    const { sendRichMessage } = await import(
+      "../src/services/telegramService.js"
+    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ description: "invalid rich message" }), {
+          status: 400,
+        }),
+      )
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    global.fetch = mockFetch;
+    expect(await sendRichMessage(createMockEnv(), 123, view)).toEqual({
+      ok: true,
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchObject({
+      text: "订阅",
+      reply_markup: view.replyMarkup,
+    });
+  });
+  it.each([400, 401, 403, 429, 500])(
+    "does not resend HTTP %i unrelated failures",
+    async (status) => {
+      const { sendRichMessage } = await import(
+        "../src/services/telegramService.js"
+      );
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              description: "unrelated error with private data",
+            }),
+            { status },
+          ),
+        );
+      global.fetch = mockFetch;
+      expect(await sendRichMessage(createMockEnv(), 123, view)).toEqual({
+        ok: false,
+        status,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("propagates uncertain network failures without a duplicate send", async () => {
+    const { sendRichMessage } = await import(
+      "../src/services/telegramService.js"
+    );
+    const mockFetch = vi.fn().mockRejectedValue(new Error("timeout"));
+    global.fetch = mockFetch;
+    await expect(sendRichMessage(createMockEnv(), 123, view)).rejects.toThrow(
+      "timeout",
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+});

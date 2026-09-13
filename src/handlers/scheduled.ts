@@ -1,20 +1,17 @@
-import { Env } from "../types/env.js";
 import { createReminderRepository } from "../repositories/reminderRepository.js";
-import { createSubscriptionRepository } from "../repositories/subscriptionRepository.js";
-import { createUserRepository } from "../repositories/userRepository.js";
 import {
-  processReminderEntries,
   getReminderDaysAhead,
   getReminderDateRange,
   ReminderEntryInput,
 } from "../services/reminderService.js";
-import { createSubscriptionService } from "../services/subscriptionService.js";
+import { enqueueReminderEntries } from "../queues/reminderQueue.js";
+import type { ValidatedEnv } from "../types/env.js";
 import { log } from "../utils/logger.js";
 import { PROJECT_REMINDER_MAX_DAYS_BEFORE } from "../utils/reminderPolicy.js";
 
 export async function handleScheduled(
   _controller: ScheduledController,
-  env: Env,
+  env: ValidatedEnv,
 ): Promise<void> {
   const daysAhead = getReminderDaysAhead(env);
   const scanDaysAhead = Math.max(daysAhead, PROJECT_REMINDER_MAX_DAYS_BEFORE);
@@ -28,9 +25,6 @@ export async function handleScheduled(
   });
 
   const reminderRepo = createReminderRepository(env.SUBSCRIPTION_KV);
-  const subRepo = createSubscriptionRepository(env.SUBSCRIPTION_KV);
-  const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
-  const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
 
   const reminderInputs: ReminderEntryInput[] = [];
 
@@ -41,27 +35,17 @@ export async function handleScheduled(
     }
   }
 
-  const {
-    sent: sentCount,
-    messages: messageCount,
-    advanced: advancedCount,
-  } = await processReminderEntries(
-    env,
-    reminderRepo,
-    subRepo,
-    userRepo,
-    subscriptionService,
+  const queuedMessageCount = await enqueueReminderEntries(
+    env.REMINDER_QUEUE,
     reminderInputs,
-    daysAhead,
   );
 
-  log("info", "Scheduled reminder processing complete", {
+  log("info", "Scheduled reminder enqueue complete", {
     env: env.APP_ENV,
     daysAhead,
     scanDaysAhead,
     dateCount: dates.length,
-    sentCount,
-    messageCount,
-    advancedCount,
+    reminderEntryCount: reminderInputs.length,
+    queuedMessageCount,
   });
 }

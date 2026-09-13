@@ -73,9 +73,10 @@ Trial and auto-renewal are direct actions on the `/list` detail view instead of 
 `/list` opens the paginated inline list manager. `/list_full` invokes the same
 handler for compatibility, while `/list_text` preserves the text-only view:
 
-- Each page shows up to 8 subscriptions.
+- Each page shows up to 12 subscriptions in a compact name / amount / next-date table.
+- Full names are link-style `list:select:<id>:<page>` callback buttons; only pagination remains below. Plain-text fallback uses numbered selection buttons.
 - Active subscriptions sort before paused subscriptions.
-- Selecting a subscription opens a detail view.
+- Selecting a subscription opens a compact bordered two-column field table and collapsible notes, with the name inside the table and no separate title. Returning keeps the source page; deletion clamps a now-empty final page.
 - Detail actions support edit, delete, pause/resume, trial marking, auto-renewal changes, and back navigation.
 - Delete still requires confirmation.
 - Pause happens immediately.
@@ -115,9 +116,9 @@ The `/reminders` command lists subscriptions with upcoming renewals within the c
 - Sorts by billing date ascending.
 - Shows name, price (if set), and billing date for each upcoming subscription.
 - If no subscriptions are due within the window, replies "近期没有即将扣款的订阅。"
-Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. `/reminders` itself uses the compact `扣款日` list label.
+Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. `/reminders` shares expiration-specific labels with scheduled notifications.
 
-Scheduled delivery starts at the beginning of the configured window and repeats once per user-local day through the billing date. The default three-day setting therefore sends on D-3, D-2, D-1, and D. Successful sends are deduplicated per subscription, billing date, and local reminder date; failed sends remain retryable in the current dispatch window.
+Scheduled delivery starts at the beginning of the configured window and repeats once per user-local day through the billing date. The default three-day setting therefore sends on D-3, D-2, D-1, and D. Cron scans enqueue one bounded message per user group, and the Queue consumer reloads current KV state before sending. Successful sends are deduplicated per subscription, billing date, and local reminder date. Network errors, Telegram 429 responses, and 5xx responses retry with exponential backoff without advancing the billing date; messages that exhaust the configured attempts move to the dead-letter queue.
 
 Subscriptions follow that default behavior unless they have a project-level
 override. The current override sends exactly once on D-1 at the user's normal
@@ -125,13 +126,19 @@ reminder hour. It does not send again on the billing date, but billing-date
 advancement and non-renewing expiration handling still run normally. Existing
 subscriptions have no override and therefore require no migration.
 
-When Rich Messages are available, the result is a table with inline renewal and
-management actions. A Telegram API rejection falls back to equivalent plain
-text without losing the buttons.
+Single reminders use a summary; multiple reminders use a compact three-column
+table sorted by date and name. Notifications and command results are split at
+12 items. Renewal buttons stay below the content, one per item, with one shared
+management entry. No row repeats “发送 /list 管理”. After a renewal or stale click,
+only that renewal button is removed; a short result is sent without replacing
+the original summary or removing unrelated buttons. Each successful delivery
+chunk records its own sent markers. Transiently failed chunks do not advance
+in the Queue path and retry independently of already delivered items.
 
 ## /settings Behavior
 
-`/settings` uses Chinese state labels and saves each change immediately. It
+`/settings` shows current values in a compact bordered two-column table with action-only
+buttons and saves each change immediately. It
 covers report currency, reminder enablement, reminder hour, timezone, and
 **隐私与数据**. The privacy panel can export a JSON file or enter the existing
 double-confirmation permanent deletion flow.
@@ -145,11 +152,24 @@ path creates a session, reads subscription KV, or refreshes a profile.
 
 ## Rich Message compatibility
 
-`/help`, `/reminders`, and `/report_text` use Bot API structured blocks and
-tables. Transactional add/edit/delete/settings panels remain ordinary editable
-messages. `sendRichOrPlain` catches Telegram API rejection, logs only the
-sanitized error type, and sends content-equivalent plain text with the same
-keyboard. Draft and ephemeral APIs are intentionally unused.
+grammY 1.46.0 provides Bot API 10.3 compact tables and link-style text buttons.
+Lists, details, reminders, settings overviews, help and text reports share rich
+presentation rules. Input pickers and destructive confirmations retain their
+existing controls and callback namespaces; conversations keep KV access inside
+`external()`. Details refresh after editing without repeating command instructions.
+
+`sendRichOrPlain` and `editRichOrPlain` fall back only on explicit unsupported
+rich-message or invalid-format errors. Network failures, 429, 5xx and unrelated
+API errors propagate instead of causing an immediate duplicate send. Long plain
+reports split at 3,900 UTF-16 code units without dropping text or breaking emoji;
+the final segment carries the action keyboard. Unchanged
+edits succeed; other edit errors propagate. No raw Telegram descriptions are
+logged by this presentation/reminder path. Draft and ephemeral APIs remain unused.
+
+Payload and integration tests cover the new rendering, navigation and retry
+behavior. Telegram client visual acceptance remains pending: verify full-name
+wrapping, three-column readability, link-style callbacks, detail controls and
+settings tables on mobile and desktop using test data before rollout.
 
 ## Session Behavior on Cloudflare Workers
 

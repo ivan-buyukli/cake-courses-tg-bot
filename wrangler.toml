@@ -24,6 +24,19 @@ preview_id = "6401a8087afa4916be481c9d71a8266c"
 [triggers]
 crons = ["*/30 * * * *"]
 
+[[queues.producers]]
+binding = "REMINDER_QUEUE"
+queue = "subscription-reminders"
+
+[[queues.consumers]]
+queue = "subscription-reminders"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "subscription-reminders-dlq"
+max_concurrency = 5
+retry_delay = 60
+
 [observability]
 enabled = true
 

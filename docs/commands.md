@@ -75,9 +75,14 @@ One-line `/add` always creates an active, paid, auto-renewing subscription. It d
 
 ### `/list`
 
-Displays the paginated inline manager. Each page shows up to 8 subscriptions as
-buttons. Selecting a subscription opens a detail view with edit, delete,
-pause/resume, trial, auto-renewal, and back actions.
+Displays a compact bordered three-column table (subscription, amount, next date), with
+12 subscriptions per page. Full names are link-style callback buttons; the
+keyboard below contains only pagination. Trial, non-renewing and paused states
+appear beside names; paused dates show “已暂停”, unknown amounts “—”, and zero
+amounts remain visible. The plain-text fallback uses numbered selection buttons.
+Selecting a name opens a compact bordered two-column field table with collapsible notes and no separate title. All
+edit, delete, pause/resume, trial, auto-renewal and back actions remain visible.
+Returning preserves the page; deleting its last item clamps to the last page.
 
 ### `/list_full`
 
@@ -151,8 +156,9 @@ sending fails, the bot falls back to a plain-text summary.
 ### `/report_text`
 
 Generates a structured Rich Message with summary tables and collapsible monthly
-details. If Telegram rejects the Rich Message, it sends the equivalent plain
-text in the same request path with the same action keyboard:
+details. The upcoming table shows at most 30 items and labels the displayed
+range when truncated; totals still include all items. Explicit rich-format
+rejections fall back to equivalent plain text with the same action keyboard:
 - Upcoming 30-day due line items, sorted by billing date.
 - Converted upcoming 30-day total in the user's default currency.
 - Future 12-month projection grouped by month.
@@ -161,7 +167,7 @@ text in the same request path with the same action keyboard:
 ### `/reminders`
 
 Lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
-Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. This command uses the compact list label `扣款日`.
+Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. Both command results and scheduled notifications label each item as 扣款, 体验到期 or 服务到期.
 
 Scheduled delivery starts `REMINDER_DAYS_AHEAD` days before the billing date and repeats once per user-local day through the billing date. With the default value of `3`, eligible dates are D-3, D-2, D-1, and D. Failed Telegram sends are not marked as delivered and remain retryable during the same local dispatch window.
 
@@ -170,11 +176,18 @@ A subscription can override this behavior from `/list` → **编辑** →
 the billing date. Subscriptions without an override continue to inherit the
 default reminder window.
 
-Scheduled reminder messages include an inline **已续费一个周期** action when the bot can calculate the next billing date. It advances that subscription by one cycle, updates the reminder index, and ignores stale clicks from older reminder messages.
+Reminder messages use a single-item summary or compact bordered three-column table,
+sorted by date and name and split into at most 12 items per message. Below the
+content, **已续费 · 名称** buttons remain one per row for calculable cycles, plus
+one management entry. Successful or stale renewal removes only that button and
+sends a short result, preserving the original summary and all other actions.
+Partial delivery records and advances only successful chunks on transient
+failure; Queue retries reload current state and skip delivered items.
 
 ### `/settings`
 
-Starts the settings conversation for:
+Shows current values in a two-column table, with separate action-only buttons.
+Changes save immediately; the existing pickers remain available for:
 - Default report currency
 - Reminder enablement
 - Reminder hour
@@ -207,6 +220,7 @@ Checks whether required runtime configuration and report currency constants are 
 - `USER_HASH_SECRET`
 - `ADMIN_USER_ID`
 - `SUBSCRIPTION_KV`
+- `REMINDER_QUEUE`
 - `APP_ENV`
 - `REMINDER_DAYS_AHEAD`
 - `XCURRENCY_API_KEY`

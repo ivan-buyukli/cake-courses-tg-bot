@@ -10,6 +10,7 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 - **Language**: TypeScript (strict)
 - **Telegram SDK**: grammY + @grammyjs/conversations
 - **Storage**: Cloudflare KV
+- **Background delivery**: Cloudflare Queues + Cron Triggers
 - **Validation**: Zod
 - **Testing**: Vitest
 - **Crypto**: Web Crypto API (AES-GCM, HKDF, HMAC-SHA-256)
@@ -21,6 +22,7 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 src/
 ├── bot/              # Telegram bot setup, commands, conversations, callbacks, keyboards, middleware, KV session storage
 ├── handlers/         # Worker fetch/scheduled/health handlers
+├── queues/           # Reminder Queue producer/consumer orchestration
 ├── services/         # Subscription, reminder, report, export, privacy, Telegram API logic
 ├── repositories/     # KV storage access layer and config readers
 ├── crypto/           # Encryption, hashing, key derivation, master key parsing
@@ -45,7 +47,7 @@ src/
 - Keep personal data private: subscription commands and legacy callbacks stop
   before session/profile/KV middleware in groups and direct users to the bot's
   private chat.
-- Send scheduled renewal reminders through Cloudflare Cron Triggers.
+- Scan scheduled renewals with Cron Triggers and deliver them reliably through Cloudflare Queues.
 
 ## Development
 
@@ -136,6 +138,26 @@ wrangler secret put ENCRYPTION_KEY
 wrangler secret put USER_HASH_SECRET
 wrangler secret put XCURRENCY_API_KEY
 ```
+
+## Reminder Queues
+
+The scheduled handler groups reminder index entries by hashed user key and
+enqueues opaque IDs and dates. Queue payloads never contain subscription names,
+prices, notes, raw Telegram IDs, or chat IDs. The consumer reloads and decrypts
+the current records from KV immediately before sending.
+
+Create the production queues once before the first deployment:
+
+```bash
+pnpm wrangler queues create subscription-reminders
+pnpm wrangler queues create subscription-reminders-dlq
+```
+
+The producer and consumer bindings are declared in `wrangler.toml`. Transient
+Telegram failures use per-message exponential backoff and eventually move to
+`subscription-reminders-dlq` after the configured retry limit. Local
+`wrangler dev` uses a locally simulated queue and does not require production
+queue creation.
 
 ## Report Exchange Rates
 

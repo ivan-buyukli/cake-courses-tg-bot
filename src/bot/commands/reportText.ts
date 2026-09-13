@@ -103,7 +103,7 @@ function buildRichReport(
 
   return {
     blocks: [
-      { type: "heading", size: 1, text: "订阅支出明细" },
+      { type: "paragraph", text: "订阅支出明细" },
       {
         type: "paragraph",
         text:
@@ -122,6 +122,7 @@ function buildRichReport(
         ? [
             {
               type: "table" as const,
+              is_compact: true as const,
               is_bordered: true as const,
               is_striped: true as const,
               cells: [
@@ -135,10 +136,17 @@ function buildRichReport(
             },
           ]
         : [{ type: "paragraph" as const, text: "未来30天暂无扣款。" }]),
+      ...(data.currentMonthItems.length > 30
+        ? [
+            {
+              type: "paragraph" as const,
+              text: `显示前 30 项，共 ${data.currentMonthItems.length} 项；汇总包含全部项目。`,
+            },
+          ]
+        : []),
       { type: "divider" },
       {
-        type: "heading",
-        size: 2,
+        type: "paragraph",
         text: `未来12个月 · ${formatMoney(data.yearTotal, data.baseCurrency)}`,
       },
       {
@@ -147,6 +155,7 @@ function buildRichReport(
         blocks: [
           {
             type: "table",
+            is_compact: true,
             is_bordered: true,
             is_striped: true,
             cells: [

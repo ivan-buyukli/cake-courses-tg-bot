@@ -10,6 +10,7 @@ import { envSchema } from "../../../src/schemas/envSchema.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import type { BotContext } from "../../../src/types/context.js";
 import type { Env } from "../../../src/types/env.js";
+import { createMockQueue } from "../../queueTestUtils.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
@@ -32,6 +33,7 @@ function createEnv(overrides: Partial<Env> = {}): Env {
     USER_HASH_SECRET: "hash-secret",
     ADMIN_USER_ID: "123456",
     SUBSCRIPTION_KV: createMockKV(),
+    REMINDER_QUEUE: createMockQueue(),
     APP_ENV: "test",
     REMINDER_DAYS_AHEAD: "3",
     ...overrides,
@@ -77,6 +79,7 @@ describe("diagnosisCommand", () => {
     expect(replyText).toContain("环境变量自检：通过");
     expect(replyText).toContain("[OK] ENCRYPTION_KEY");
     expect(replyText).toContain("[OK] SUBSCRIPTION_KV");
+    expect(replyText).toContain("[OK] REMINDER_QUEUE");
     expect(replyText).toContain("[OK] DEFAULT_REPORT_CURRENCY");
     expect(replyText).toContain("[OK] config:exchange-rates:v1");
     expect(replyText).not.toContain("bot-token");
@@ -106,6 +109,7 @@ describe("buildDiagnosisChecks", () => {
       USER_HASH_SECRET: "",
       ADMIN_USER_ID: "abc",
       SUBSCRIPTION_KV: {} as KVNamespace,
+      REMINDER_QUEUE: {} as Queue,
       APP_ENV: "staging",
       REMINDER_DAYS_AHEAD: "3.5",
     });
@@ -121,6 +125,7 @@ describe("buildDiagnosisChecks", () => {
         expect.objectContaining({ name: "USER_HASH_SECRET", level: "error" }),
         expect.objectContaining({ name: "ADMIN_USER_ID", level: "warn" }),
         expect.objectContaining({ name: "SUBSCRIPTION_KV", level: "error" }),
+        expect.objectContaining({ name: "REMINDER_QUEUE", level: "error" }),
         expect.objectContaining({ name: "APP_ENV", level: "error" }),
         expect.objectContaining({
           name: "REMINDER_DAYS_AHEAD",

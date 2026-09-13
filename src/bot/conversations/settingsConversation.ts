@@ -1,3 +1,9 @@
+import {
+  sendRichOrPlain,
+  editRichOrPlain,
+  richTableCell,
+  type MessagePresentation,
+} from "../ui/richMessage.js";
 import { Conversation } from "@grammyjs/conversations";
 import { BotContext, BaseBotContext } from "../../types/context.js";
 import { createLogger } from "../../utils/logger.js";
@@ -21,23 +27,55 @@ import { privacyDeleteKeyboard } from "../keyboards/privacyDeleteKeyboard.js";
 import { exportCommand } from "../commands/export.js";
 
 export function settingsKeyboard(settings: UserSettings): InlineKeyboard {
-  const reminderLabel = settings.reminderEnabled ? "开启" : "关闭";
-  const hourLabel = String(settings.reminderHour).padStart(2, "0") + ":00";
-
   return new InlineKeyboard()
-    .text(`报告币种：${settings.defaultCurrency}`, "settings:currency")
+    .text("报告币种", "settings:currency")
     .primary()
+    .text(
+      settings.reminderEnabled ? "关闭提醒" : "开启提醒",
+      "settings:toggle_reminder",
+    )
     .row()
-    .text(`提醒：${reminderLabel}`, "settings:toggle_reminder")
+    .text("提醒时间", "settings:hour")
+    .text("时区", "settings:timezone")
     .row()
-    .text(`提醒时间：${hourLabel}`, "settings:hour")
-    .row()
-    .text(`时区：${settings.timezone}`, "settings:timezone")
-    .row()
-    .text("🔐 隐私与数据", "settings:privacy")
-    .row()
-    .text("✅ 完成", "settings:done")
+    .text("隐私与数据", "settings:privacy")
+    .text("完成", "settings:done")
     .success();
+}
+
+export function settingsPresentation(
+  settings: UserSettings,
+): MessagePresentation {
+  const fields = [
+    ["报告币种", settings.defaultCurrency],
+    ["提醒", settings.reminderEnabled ? "开启" : "关闭"],
+    ["提醒时间", `${String(settings.reminderHour).padStart(2, "0")}:00`],
+    ["时区", settings.timezone],
+  ];
+  return {
+    richMessage: {
+      blocks: [
+        { type: "paragraph", text: "设置" },
+        {
+          type: "table",
+          is_compact: true,
+          is_bordered: true,
+          cells: fields.map(([key, value]) => [
+            richTableCell(key),
+            richTableCell(value),
+          ]),
+        },
+      ],
+    },
+    plainText: `设置\n\n${fields.map(([key, value]) => `${key}：${value}`).join("\n")}`,
+    replyMarkup: settingsKeyboard(settings),
+  };
+}
+
+async function sendSettings(ctx: BaseBotContext, settings: UserSettings) {
+  const result = await sendRichOrPlain(ctx, settingsPresentation(settings));
+  if (!result.message) throw new Error("Settings message unavailable");
+  return result.message;
 }
 
 export function hourPickerKeyboard(currentHour?: number): InlineKeyboard {
@@ -112,9 +150,7 @@ export async function settingsConversation(
 
   logger.info("Settings conversation started");
 
-  let menuMessage = await ctx.reply("⚙️ 设置", {
-    reply_markup: settingsKeyboard(settings),
-  });
+  let menuMessage = await sendSettings(ctx, settings);
 
   while (true) {
     const updateCtx = await conversation.wait();
@@ -195,15 +231,7 @@ export async function settingsConversation(
       }
 
       if (parsed.action === "back") {
-        try {
-          await updateCtx.editMessageText("⚙️ 设置", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          menuMessage = await ctx.reply("⚙️ 设置", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
+        await editRichOrPlain(updateCtx, settingsPresentation(settings));
         continue;
       }
 
@@ -224,15 +252,7 @@ export async function settingsConversation(
         };
         await saveSettings(conversation, userKey, settings, encryptionKey);
 
-        try {
-          await updateCtx.editMessageReplyMarkup({
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          await ctx.reply("⚙️ 设置", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
+        await editRichOrPlain(updateCtx, settingsPresentation(settings));
         continue;
       }
 
@@ -250,15 +270,7 @@ export async function settingsConversation(
         };
         await saveSettings(conversation, userKey, settings, encryptionKey);
 
-        try {
-          await updateCtx.editMessageReplyMarkup({
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          await ctx.reply("⚙️ 设置", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
+        await editRichOrPlain(updateCtx, settingsPresentation(settings));
         continue;
       }
 
@@ -276,15 +288,7 @@ export async function settingsConversation(
         };
         await saveSettings(conversation, userKey, settings, encryptionKey);
 
-        try {
-          await updateCtx.editMessageReplyMarkup({
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          await ctx.reply("⚙️ 设置", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
+        await editRichOrPlain(updateCtx, settingsPresentation(settings));
         continue;
       }
 
@@ -314,15 +318,7 @@ export async function settingsConversation(
         };
         await saveSettings(conversation, userKey, settings, encryptionKey);
 
-        try {
-          await updateCtx.editMessageReplyMarkup({
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          await ctx.reply("⚙️ 设置", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
+        await editRichOrPlain(updateCtx, settingsPresentation(settings));
         continue;
       }
 
@@ -359,9 +355,7 @@ export async function settingsConversation(
         };
         await saveSettings(conversation, userKey, settings, encryptionKey);
 
-        menuMessage = await ctx.reply("⚙️ 设置", {
-          reply_markup: settingsKeyboard(settings),
-        });
+        menuMessage = await sendSettings(ctx, settings);
         continue;
       }
 
@@ -399,9 +393,7 @@ export async function settingsConversation(
       };
       await saveSettings(conversation, userKey, settings, encryptionKey);
 
-      menuMessage = await ctx.reply("⚙️ 设置", {
-        reply_markup: settingsKeyboard(settings),
-      });
+      menuMessage = await sendSettings(ctx, settings);
       continue;
     }
 
@@ -409,15 +401,7 @@ export async function settingsConversation(
     if (callbackData === "settings:back") {
       await updateCtx.answerCallbackQuery();
 
-      try {
-        await updateCtx.editMessageReplyMarkup({
-          reply_markup: settingsKeyboard(settings),
-        });
-      } catch {
-        await ctx.reply("⚙️ 设置", {
-          reply_markup: settingsKeyboard(settings),
-        });
-      }
+      await editRichOrPlain(updateCtx, settingsPresentation(settings));
       continue;
     }
 

@@ -6,12 +6,7 @@ import { sendRichOrPlain } from "../ui/richMessage.js";
 
 const HELP_TEXT =
   "订阅管理助手\n\n" +
-  "常用操作：\n" +
-  "/add — 逐步添加订阅\n" +
-  "/list — 管理、编辑、暂停或删除订阅\n" +
-  "/report — 查看支出总览\n" +
-  "/reminders — 查看近期扣款\n" +
-  "/settings — 设置提醒、时区和报告币种\n" +
+  "记录订阅、跟进到期提醒、查看支出和调整设置。\n\n" +
   "/menu — 恢复主菜单\n" +
   "/cancel — 取消当前操作\n\n" +
   "更多工具：\n" +
@@ -31,33 +26,6 @@ function helpRichMessage(): InputRichMessage {
       {
         type: "paragraph",
         text: "记录周期性订阅、提醒下次扣款，并汇总每月支出。",
-      },
-      { type: "divider" },
-      { type: "heading", size: 3, text: "快速开始" },
-      {
-        type: "list",
-        items: [
-          {
-            blocks: [{ type: "paragraph", text: "/add — 逐步添加订阅" }],
-          },
-          {
-            blocks: [
-              {
-                type: "paragraph",
-                text: "/list — 管理、编辑、暂停或删除订阅",
-              },
-            ],
-          },
-          {
-            blocks: [{ type: "paragraph", text: "/report — 查看支出总览" }],
-          },
-          {
-            blocks: [{ type: "paragraph", text: "/reminders — 查看近期扣款" }],
-          },
-          {
-            blocks: [{ type: "paragraph", text: "/settings — 提醒与报告设置" }],
-          },
-        ],
       },
       {
         type: "details",

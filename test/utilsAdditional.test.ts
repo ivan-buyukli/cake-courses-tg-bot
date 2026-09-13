@@ -6,6 +6,7 @@ import { log, sanitizeErrorMessage } from "../src/utils/logger.js";
 import { formatMoney, parseMoneyInput } from "../src/utils/money.js";
 import type { BotContext } from "../src/types/context.js";
 import type { Env } from "../src/types/env.js";
+import { createMockQueue } from "./queueTestUtils.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
@@ -38,6 +39,7 @@ function createEnv(): Env {
     ENCRYPTION_KEY: VALID_KEY,
     USER_HASH_SECRET: "hash-secret",
     SUBSCRIPTION_KV: createMockKV(),
+    REMINDER_QUEUE: createMockQueue(),
     APP_ENV: "test",
   };
 }

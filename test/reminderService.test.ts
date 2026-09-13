@@ -195,7 +195,8 @@ describe("processReminderEntry", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.reply_markup.inline_keyboard[0][0]).toEqual({
-      text: "已续费一个周期",
+      text: "已续费 · Netflix",
+      style: "success",
       callback_data: "reminder:renew:sub-1:2026-06-04",
     });
   });
@@ -610,8 +611,10 @@ describe("processReminderEntry", () => {
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.text).toContain("体验到期提醒");
-    expect(body.text).toContain("之后可能开始扣款");
+    expect(JSON.stringify(body.rich_message)).toContain("体验到期");
+    expect(JSON.stringify(body.rich_message)).toContain(
+      "体验到期后可能开始扣款",
+    );
   });
 
   it("uses service-end wording for non-renewing subscriptions", async () => {
@@ -674,8 +677,8 @@ describe("processReminderEntry", () => {
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.text).toContain("服务到期提醒");
-    expect(body.text).toContain("已关闭自动续费");
+    expect(JSON.stringify(body.rich_message)).toContain("服务到期");
+    expect(JSON.stringify(body.rich_message)).toContain("服务到期");
 
     const updated = await subscriptionService.get(userKey, subId, VALID_KEY);
     expect(updated?.status).toBe("paused");
@@ -1225,20 +1228,23 @@ describe("processReminderEntry", () => {
     expect(await reminderRepo.hasSent(userKey, "sub-2", date, date)).toBe(true);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.text).toContain("以下 2 个项目需要关注");
+    expect(JSON.stringify(body.rich_message)).toContain("订阅提醒 · 2 项");
     expect(body.reply_markup.inline_keyboard).toEqual([
       [
         {
-          text: "已续费：Cancelled One",
+          text: "已续费 · Cancelled One",
+          style: "success",
           callback_data: "reminder:renew:sub-1:2026-06-01",
         },
       ],
       [
         {
-          text: "已续费：Cancelled Two",
+          text: "已续费 · Cancelled Two",
+          style: "success",
           callback_data: "reminder:renew:sub-2:2026-06-01",
         },
       ],
+      [{ text: "管理订阅", callback_data: "nav:list" }],
     ]);
 
     const first = await subscriptionService.get(userKey, "sub-1", VALID_KEY);
@@ -1448,8 +1454,8 @@ describe("processReminderEntry", () => {
     expect(result.messages).toBe(1);
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.text).toContain("Unsent");
-    expect(body.text).not.toContain("Already Sent");
+    expect(JSON.stringify(body.rich_message)).toContain("Unsent");
+    expect(JSON.stringify(body.rich_message)).not.toContain("Already Sent");
     expect(await reminderRepo.hasSent(userKey, "sub-2", date, date)).toBe(true);
   });
 
@@ -1516,5 +1522,99 @@ describe("processReminderEntry", () => {
 
     const updatedSub = await subscriptionService.get(userKey, subId, VALID_KEY);
     expect(updatedSub?.nextBillingDate).toBe("2026-07-01");
+  });
+});
+
+describe("rich reminder grouping", () => {
+  it("marks and advances only successful chunks, then retries the remaining items without resending delivered ones", async () => {
+    const { processReminderQueueEntries } = await import(
+      "../src/services/reminderService.js"
+    );
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const service = createSubscriptionService(subRepo, reminderRepo);
+    const env = { ...createMockEnv(), SUBSCRIPTION_KV: kv };
+    const date = "2026-06-01";
+    const userKey = "test-user";
+    await userRepo.upsertUserProfile(userKey, 123, VALID_KEY);
+    const inputs = [];
+    for (let i = 0; i < 13; i++) {
+      const id = `sub-${String(i).padStart(2, "0")}`;
+      await service.create(
+        userKey,
+        {
+          id,
+          name: id,
+          price: 0,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: date,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        VALID_KEY,
+      );
+      inputs.push({ entry: { userKey, subscriptionId: id }, date });
+    }
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    global.fetch = mockFetch;
+    const first = await processReminderQueueEntries(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      service,
+      inputs,
+    );
+    expect(first).toMatchObject({
+      sent: 12,
+      messages: 1,
+      advanced: 12,
+      retryableFailure: true,
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(
+      (await service.get(userKey, "sub-12", VALID_KEY))?.nextBillingDate,
+    ).toBe(date);
+    expect(await reminderRepo.hasSent(userKey, "sub-12", date, date)).toBe(
+      false,
+    );
+    for (let i = 0; i < 12; i++)
+      expect(
+        await reminderRepo.hasSent(
+          userKey,
+          `sub-${String(i).padStart(2, "0")}`,
+          date,
+          date,
+        ),
+      ).toBe(true);
+    const retryFetch = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    global.fetch = retryFetch;
+    const retry = await processReminderQueueEntries(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      service,
+      inputs,
+    );
+    expect(retry).toMatchObject({
+      sent: 1,
+      messages: 1,
+      advanced: 1,
+      retryableFailure: false,
+    });
+    expect(retryFetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(retryFetch.mock.calls[0][1].body);
+    expect(JSON.stringify(body.rich_message)).toContain("sub-12");
+    expect(JSON.stringify(body.rich_message)).not.toContain("sub-00");
   });
 });

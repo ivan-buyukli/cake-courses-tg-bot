@@ -4,6 +4,9 @@ import {
   listEditFieldCallback,
   listResumeCallback,
   listPageCallback,
+  listSelectCallback,
+  listBackCallback,
+  listDeleteConfirmCallback,
 } from "../src/bot/callbacks/listCallbacks.js";
 import {
   buildDetailKeyboard,
@@ -248,7 +251,7 @@ describe("list manager callbacks", () => {
 
 describe("list manager keyboards", () => {
   it("labels pagination buttons with distinct emoji", () => {
-    const subs = Array.from({ length: 17 }, (_, index) =>
+    const subs = Array.from({ length: 25 }, (_, index) =>
       createSubscription({ id: `sub-${index}`, name: `Sub ${index}` }),
     );
 
@@ -277,12 +280,10 @@ describe("list manager keyboards", () => {
         expect.objectContaining({
           text: "✏️ 编辑",
           callback_data: "list:edit:sub-1:0",
-          style: "primary",
         }),
         expect.objectContaining({
           text: "🗑 删除",
           callback_data: "list:del:sub-1:0",
-          style: "danger",
         }),
         { text: "⏸ 暂停", callback_data: "list:pause:sub-1:0" },
         { text: "标记体验", callback_data: "list:ef:trial:sub-1:0" },
@@ -372,7 +373,7 @@ describe("list panel age check", () => {
 
     const editedText = (ctx.editMessageText as ReturnType<typeof vi.fn>).mock
       .calls[0][0];
-    expect(editedText).toContain("你的订阅 — 第 1/1 页");
+    expect(editedText.blocks[0].text).toBe("你的订阅 · 1 项 · 第 1/1 页");
   });
 
   it("old panel answers with expired-panel message", async () => {
@@ -400,5 +401,44 @@ describe("list panel age check", () => {
       expect.stringContaining("管理面板已过期"),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
+  });
+});
+
+describe("rich list navigation", () => {
+  it("opens linked names, returns to the original page, and clamps after deleting its last item", async () => {
+    const kv = createMockKV();
+    const service = createSubscriptionService(
+      createSubscriptionRepository(kv),
+      createReminderRepository(kv),
+    );
+    for (let i = 0; i < 13; i++)
+      await service.create(
+        "user-key",
+        createSubscription({
+          id: `sub-${i}`,
+          name: `Name ${i}`,
+          nextBillingDate: `2026-06-${String(i + 1).padStart(2, "0")}`,
+        }),
+        VALID_KEY,
+      );
+    const select = createListCallbackContext("list:select:sub-12:1", { kv });
+    await listSelectCallback(select as any);
+    expect(
+      select.editMessageText.mock.calls[0][0].blocks[0].cells[0][1].text,
+    ).toBe("Name 12");
+    expect(
+      select.editMessageText.mock.calls[0][1].reply_markup.inline_keyboard.flat(),
+    ).toContainEqual({ text: "← 返回列表", callback_data: "list:back:1" });
+    const back = createListCallbackContext("list:back:1", { kv });
+    await listBackCallback(back as any);
+    expect(back.editMessageText.mock.calls[0][0].blocks[0].text).toContain(
+      "第 2/2 页",
+    );
+    const remove = createListCallbackContext("list:delok:sub-12:1", { kv });
+    await listDeleteConfirmCallback(remove as any);
+    expect(remove.editMessageText.mock.calls[0][0].blocks[0].text).toContain(
+      "12 项 · 第 1/1 页",
+    );
+    expect(await service.get("user-key", "sub-12", VALID_KEY)).toBeNull();
   });
 });

@@ -1,56 +1,137 @@
-import { InlineKeyboard } from "grammy";
+import { InlineKeyboard, GrammyError } from "grammy";
 import { describe, expect, it, vi } from "vitest";
-import { sendRichOrPlain } from "../src/bot/ui/richMessage.js";
+import {
+  sendRichOrPlain,
+  editRichOrPlain,
+  editPlainMessage,
+  splitPlainMessage,
+} from "../src/bot/ui/richMessage.js";
 import type { BotContext } from "../src/types/context.js";
 
-function createContext(sendRichMessage: ReturnType<typeof vi.fn>): BotContext {
+function error(status: number, description: string) {
+  return new GrammyError(
+    "Telegram error",
+    { ok: false, error_code: status, description },
+    "sendRichMessage",
+    {},
+  );
+}
+function createContext() {
   return {
     chat: { id: 123, type: "private" },
-    api: { sendRichMessage },
-    reply: vi.fn().mockResolvedValue(undefined),
+    api: { sendRichMessage: vi.fn().mockResolvedValue({ message_id: 1 }) },
+    reply: vi.fn().mockResolvedValue({ message_id: 2 }),
+    editMessageText: vi.fn().mockResolvedValue(true),
   } as unknown as BotContext;
 }
-
-const richMessage = {
-  blocks: [{ type: "heading" as const, size: 1 as const, text: "帮助" }],
+const view = {
+  richMessage: {
+    blocks: [{ type: "heading" as const, size: 1 as const, text: "帮助" }],
+  },
+  plainText: "普通帮助内容",
+  replyMarkup: new InlineKeyboard().text("返回", "nav:menu"),
+  plainReplyMarkup: new InlineKeyboard().text("1", "list:select:sub-1:0"),
 };
 
-describe("sendRichOrPlain", () => {
-  it("uses Rich Messages with the same action keyboard", async () => {
-    const sendRichMessage = vi.fn().mockResolvedValue({});
-    const ctx = createContext(sendRichMessage);
-    const keyboard = new InlineKeyboard().text("返回", "nav:menu");
-
-    const result = await sendRichOrPlain(ctx, {
-      richMessage,
-      plainText: "帮助",
-      replyMarkup: keyboard,
+describe("message presentation transport", () => {
+  it("sends rich content and returns its message for conversations", async () => {
+    const ctx = createContext();
+    expect(await sendRichOrPlain(ctx, view)).toMatchObject({
+      usedRichMessage: true,
+      message: { message_id: 1 },
     });
-
-    expect(result).toEqual({ usedRichMessage: true });
-    expect(sendRichMessage).toHaveBeenCalledWith(123, richMessage, {
-      reply_markup: keyboard,
+    expect(ctx.api.sendRichMessage).toHaveBeenCalledWith(
+      123,
+      view.richMessage,
+      { reply_markup: view.replyMarkup },
+    );
+    expect(ctx.reply).not.toHaveBeenCalled();
+  });
+  it("falls back only for an explicit rich formatting rejection, preserving controls", async () => {
+    const ctx = createContext();
+    vi.mocked(ctx.api.sendRichMessage).mockRejectedValue(
+      error(400, "Bad Request: can't parse rich message"),
+    );
+    expect(await sendRichOrPlain(ctx, view)).toMatchObject({
+      usedRichMessage: false,
+    });
+    expect(ctx.reply).toHaveBeenCalledWith(view.plainText, {
+      reply_markup: view.plainReplyMarkup,
+    });
+  });
+  it.each([
+    error(429, "Too Many Requests"),
+    error(500, "Server Error"),
+    error(400, "chat not found"),
+    new Error("network timeout"),
+  ])("does not resend on unrelated or uncertain failure", async (failure) => {
+    const ctx = createContext();
+    vi.mocked(ctx.api.sendRichMessage).mockRejectedValue(failure);
+    await expect(sendRichOrPlain(ctx, view)).rejects.toBe(failure);
+    expect(ctx.reply).not.toHaveBeenCalled();
+  });
+  it("edits the same message to plain content on a supported fallback", async () => {
+    const ctx = createContext();
+    vi.mocked(ctx.editMessageText).mockRejectedValueOnce(
+      error(400, "invalid rich block"),
+    );
+    await editRichOrPlain(ctx, view);
+    expect(ctx.editMessageText).toHaveBeenNthCalledWith(2, view.plainText, {
+      reply_markup: view.plainReplyMarkup,
     });
     expect(ctx.reply).not.toHaveBeenCalled();
   });
+  it("treats unchanged edits as success and propagates other failures", async () => {
+    const ctx = createContext();
+    vi.mocked(ctx.editMessageText).mockRejectedValueOnce(
+      error(400, "message is not modified"),
+    );
+    await expect(editRichOrPlain(ctx, view)).resolves.toBeUndefined();
+    vi.mocked(ctx.editMessageText).mockRejectedValueOnce(
+      error(400, "message to edit not found"),
+    );
+    await expect(editPlainMessage(ctx, "提示")).rejects.toBeInstanceOf(
+      GrammyError,
+    );
+  });
+});
 
-  it("sends equivalent plain text when Telegram rejects Rich Messages", async () => {
-    const sendRichMessage = vi.fn().mockRejectedValue(new Error("Bad Request"));
-    const ctx = createContext(sendRichMessage);
-    const keyboard = new InlineKeyboard().text("返回", "nav:menu");
+describe("long plain report fallback", () => {
+  it("preserves long text and emoji without splitting surrogate pairs", async () => {
+    const text = "x".repeat(3899) + "😀" + "详情\n".repeat(1500);
+    const chunks = splitPlainMessage(text);
+    expect(chunks.join("")).toBe(text);
+    expect(chunks.every((chunk) => chunk.length <= 3900)).toBe(true);
+    expect(chunks.every((chunk) => !/[\uD800-\uDBFF]$/.test(chunk))).toBe(true);
+    const ctx = createContext();
+    vi.mocked(ctx.api.sendRichMessage).mockRejectedValue(
+      error(400, "invalid rich message"),
+    );
+    await sendRichOrPlain(ctx, { ...view, plainText: text });
+    const calls = vi.mocked(ctx.reply).mock.calls;
+    expect(calls.map((call) => call[0]).join("")).toBe(text);
+    expect(calls.at(-1)?.[1]?.reply_markup).toEqual(view.plainReplyMarkup);
+  });
+});
 
-    const result = await sendRichOrPlain(ctx, {
-      richMessage,
-      plainText: "普通帮助内容",
-      replyMarkup: keyboard,
-    });
-
-    expect(result).toEqual({
-      usedRichMessage: false,
-      fallbackErrorType: "Error",
-    });
-    expect(ctx.reply).toHaveBeenCalledWith("普通帮助内容", {
-      reply_markup: keyboard,
-    });
+describe("presentation error privacy", () => {
+  it("does not log a raw Telegram description in the outer middleware", async () => {
+    const { errorHandler } = await import(
+      "../src/bot/middleware/errorHandler.js"
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const ctx = createContext();
+      await errorHandler(ctx, async () => {
+        throw error(400, "private subscription name and price 19.99");
+      });
+      expect(log).toHaveBeenCalled();
+      expect(JSON.stringify(log.mock.calls)).not.toContain(
+        "private subscription name",
+      );
+      expect(JSON.stringify(log.mock.calls)).not.toContain("19.99");
+    } finally {
+      log.mockRestore();
+    }
   });
 });

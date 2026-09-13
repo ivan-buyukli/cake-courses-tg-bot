@@ -11,7 +11,8 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 - **Runtime**: Cloudflare Workers (compatibility_flags: ["nodejs_compat"])
 - **Language**: TypeScript (ESNext, moduleResolution: "Bundler")
 - **Telegram SDK**: grammY + @grammyjs/conversations
-- **Storage**: Cloudflare KV only (no D1, no Durable Objects, no Queues, no R2)
+- **Storage**: Cloudflare KV only (no D1, no Durable Objects, no R2)
+- **Background delivery**: Cloudflare Queues for renewal reminders, produced by Cron Triggers
 - **Validation**: Zod
 - **Testing**: Vitest with globals
 - **Crypto**: Web Crypto API (AES-GCM, HKDF, HMAC-SHA-256)
@@ -28,6 +29,7 @@ src/
 │   ├── callbacks/    # Inline button callbacks: sub, edit, delete, privacy
 │   └── middleware/   # requestContext, auth, rateLimit, errorHandler
 ├── handlers/         # Worker entry points: webhook, scheduled, health
+├── queues/           # Reminder Queue producer/consumer orchestration
 ├── services/         # Business logic: subscriptionService, privacyService
 ├── repositories/     # KV storage access layer with index management
 ├── crypto/           # Encryption, hashing, key derivation, master key parsing
@@ -114,7 +116,13 @@ Per-user encryption keys are derived via HKDF-SHA-256 from `ENCRYPTION_KEY` and 
 ### 5. Cloudflare Workers constraints
 - Sessions are stored in encrypted Cloudflare KV with a 1-hour TTL; conversations can still expire after inactivity and KV remains eventually consistent.
 - KV operations are async and may have eventual consistency.
-- No D1, Durable Objects, Queues, or R2 are used.
+- No D1, Durable Objects, or R2 are used. Queues are used only to decouple
+  scheduled reminder discovery from Telegram delivery.
+- Queue payloads contain only hashed user keys, subscription UUIDs, and dates;
+  never include plaintext subscription data, raw Telegram IDs, or chat IDs.
+- Queue consumers must validate messages and explicitly call `ack()` or
+  `retry()` for every message. Transient Telegram failures must not advance a
+  subscription before the retry succeeds.
 
 ## Context Types
 
@@ -301,7 +309,7 @@ All subscription-related callbacks verify the subscription still exists before a
 
 7. **Webhook secret validation**: Simple `!==` comparison is acceptable for high-entropy secrets.
 
-8. **Scheduled triggers**: Cron is configured in `wrangler.toml` (`0 8 * * *`). The `scheduled` handler processes reminders for the upcoming days and sends Telegram messages via `reminderService`.
+8. **Scheduled reminders**: Cron is configured in `wrangler.toml` (`*/30 * * * *`). The `scheduled` handler scans reminder indexes and enqueues per-user work. The Queue consumer reloads current KV state, sends through `reminderService`, explicitly acknowledges or retries each message, and uses the configured dead-letter queue after retry exhaustion.
 
 ## Documentation Files
 

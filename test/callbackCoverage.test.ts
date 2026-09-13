@@ -14,6 +14,7 @@ import {
   subPauseCallback,
   subResumeCallback,
   subViewCallback,
+  reminderRenewCallback,
 } from "../src/bot/callbacks/subCallbacks.js";
 import { formatSubscriptionDetails } from "../src/utils/formatSubscription.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
@@ -254,8 +255,20 @@ describe("subscription callbacks", () => {
 
     expect(ctx.answerCallbackQuery).toHaveBeenCalled();
     expect(ctx.editMessageText).toHaveBeenCalledWith(
-      expect.stringContaining("Netflix"),
-      undefined,
+      expect.objectContaining({
+        blocks: expect.arrayContaining([
+          expect.objectContaining({
+            type: "table",
+            cells: expect.arrayContaining([
+              [
+                expect.objectContaining({ text: "订阅" }),
+                expect.objectContaining({ text: "Netflix" }),
+              ],
+            ]),
+          }),
+        ]),
+      }),
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 
@@ -274,7 +287,7 @@ describe("subscription callbacks", () => {
       expect(ctx.answerCallbackQuery).toHaveBeenCalledTimes(1);
       expect(ctx.editMessageText).toHaveBeenCalledWith(
         expect.stringContaining("没有找到这个订阅"),
-        undefined,
+        { reply_markup: { inline_keyboard: [] } },
       );
     }
   });
@@ -321,5 +334,59 @@ describe("subscription callbacks", () => {
 
     expect(ctx.answerCallbackQuery).toHaveBeenCalled();
     expect(ctx.conversation.enter).toHaveBeenCalledWith("resume", "sub-1");
+  });
+});
+
+describe("reminder renewal controls", () => {
+  it("preserves the summary and other buttons, including on duplicate clicks", async () => {
+    const kv = createMockKV();
+    await seedSubscription(kv);
+    await seedSubscription(kv, createSub({ id: "sub-2", name: "Spotify" }));
+    const data = "reminder:renew:sub-1:2026-06-01";
+    const other = {
+      text: "已续费 · Spotify",
+      callback_data: "reminder:renew:sub-2:2026-06-01",
+    };
+    const navigation = { text: "管理订阅", callback_data: "nav:list" };
+    const makeContext = () =>
+      createCallbackContext(kv, data, {
+        callbackQuery: {
+          data,
+          message: {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "已续费 · Netflix", callback_data: data }],
+                [other],
+                [navigation],
+              ],
+            },
+          },
+        } as any,
+        reply: vi.fn().mockResolvedValue(undefined),
+        editMessageReplyMarkup: vi.fn().mockResolvedValue(undefined),
+      });
+    const first = makeContext();
+    await reminderRenewCallback(first);
+    expect(first.editMessageText).not.toHaveBeenCalled();
+    expect(first.editMessageReplyMarkup).toHaveBeenCalledWith({
+      reply_markup: { inline_keyboard: [[other], [navigation]] },
+    });
+    expect(first.reply).toHaveBeenCalledWith(
+      expect.stringContaining("2026-07-01"),
+    );
+    const duplicate = makeContext();
+    await reminderRenewCallback(duplicate);
+    expect(duplicate.reply).toHaveBeenCalledWith(
+      expect.stringContaining("已经处理过"),
+    );
+    expect(duplicate.editMessageText).not.toHaveBeenCalled();
+    expect(
+      (await createService(kv).get("user-key", "sub-1", VALID_KEY))
+        ?.nextBillingDate,
+    ).toBe("2026-07-01");
+    expect(
+      (await createService(kv).get("user-key", "sub-2", VALID_KEY))
+        ?.nextBillingDate,
+    ).toBe("2026-06-01");
   });
 });

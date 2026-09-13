@@ -11,7 +11,9 @@ import {
   parseSubCallbackData,
 } from "../../utils/callbackParser.js";
 import { InlineKeyboard } from "grammy";
-import { formatSubscriptionDetails } from "../../utils/formatSubscription.js";
+import { detailPresentation } from "../ui/subscriptionPresentation.js";
+import { editRichOrPlain, editPlainMessage } from "../ui/richMessage.js";
+import { isMessageNotModified } from "../../utils/telegramErrors.js";
 
 const answeredCallbacks = new WeakSet<object>();
 
@@ -33,11 +35,7 @@ async function safeEditMessageText(
   text: string,
   options?: { reply_markup?: InlineKeyboard },
 ): Promise<void> {
-  try {
-    await ctx.editMessageText(text, options);
-  } catch {
-    // Message may have been deleted or already edited
-  }
+  await editPlainMessage(ctx, text, options);
 }
 
 export async function subViewCallback(ctx: BotContext): Promise<void> {
@@ -71,14 +69,13 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
       return;
     }
 
-    const text = formatSubscriptionDetails(sub);
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, text);
+    await editRichOrPlain(ctx, detailPresentation(sub));
 
     logger.info("Viewed subscription via callback", { subId: parsed.subId });
   } catch (error) {
     logger.error("Error in subViewCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -123,7 +120,7 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
     logger.info("Edit menu opened via callback", { subId: parsed.subId });
   } catch (error) {
     logger.error("Error in subEditCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -170,7 +167,7 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in subDeleteCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -215,7 +212,7 @@ export async function subPauseCallback(ctx: BotContext): Promise<void> {
     logger.info("Subscription paused via callback", { subId: parsed.subId });
   } catch (error) {
     logger.error("Error in subPauseCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -240,7 +237,7 @@ export async function subResumeCallback(ctx: BotContext): Promise<void> {
     await ctx.conversation.enter("resume", parsed.subId);
   } catch (error) {
     logger.error("Error in subResumeCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
@@ -272,34 +269,51 @@ export async function reminderRenewCallback(ctx: BotContext): Promise<void> {
       parsed.billingDate,
     );
 
+    if (result.status !== "unsupported") {
+      const rows =
+        ctx.callbackQuery?.message?.reply_markup?.inline_keyboard ?? [];
+      const remaining = rows
+        .map((row) =>
+          row.filter(
+            (button) =>
+              !("callback_data" in button) ||
+              button.callback_data !== ctx.callbackQuery?.data,
+          ),
+        )
+        .filter((row) => row.length > 0);
+      try {
+        await ctx.editMessageReplyMarkup({
+          reply_markup: { inline_keyboard: remaining },
+        });
+      } catch (error) {
+        if (!isMessageNotModified(error)) {
+          logger.warn("Could not refresh reminder controls", {
+            errorType: error instanceof Error ? error.name : "UnknownError",
+          });
+        }
+      }
+    }
     if (result.status === "not_found") {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
-      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+      await ctx.reply("没有找到这个订阅，或它已被删除。");
       return;
     }
-
     if (result.status === "stale") {
-      await safeAnswerCallbackQuery(ctx, "这条提醒已经处理过。");
-      await safeEditMessageText(
-        ctx,
-        `这条提醒已经处理过。\n当前下次日期：${result.subscription.nextBillingDate}`,
+      await ctx.reply(
+        `这条提醒已经处理过。下次日期：${result.subscription.nextBillingDate}`,
       );
       return;
     }
-
     if (result.status === "unsupported") {
-      await safeAnswerCallbackQuery(ctx, "这个订阅无法自动计算下个周期。");
-      await safeEditMessageText(
-        ctx,
-        "这个订阅无法自动计算下个周期，请发送 /list 后在详情中手动更新日期。",
-      );
+      await ctx.reply("这个订阅需要手动更新日期。", {
+        reply_markup: new InlineKeyboard().text(
+          "查看详情",
+          `sub:view:${parsed.subId}`,
+        ),
+      });
       return;
     }
-
-    await safeAnswerCallbackQuery(ctx, "已更新下次日期。");
-    await safeEditMessageText(
-      ctx,
-      `已记录"${result.subscription.name}"已续费一个周期。\n下次日期：${result.subscription.nextBillingDate}`,
+    await ctx.reply(
+      `已记录“${result.subscription.name}”续费。下次日期：${result.subscription.nextBillingDate}`,
     );
 
     logger.info("Subscription renewed from reminder callback", {
@@ -307,7 +321,7 @@ export async function reminderRenewCallback(ctx: BotContext): Promise<void> {
     });
   } catch (error) {
     logger.error("Error in reminderRenewCallback", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }

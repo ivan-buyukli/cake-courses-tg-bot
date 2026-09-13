@@ -9,7 +9,7 @@ export const errorHandler: Middleware<BotContext> = async (ctx, next) => {
     const logger = createLogger(ctx.requestId);
 
     logger.error("Bot error occurred", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
       hasUserKey: !!ctx.userKey,
       // Do not log raw Telegram user IDs or full updates
     });

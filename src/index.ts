@@ -2,6 +2,7 @@ import { Env } from "./types/env.js";
 import { handleWebhook } from "./handlers/webhook.js";
 import { handleScheduled } from "./handlers/scheduled.js";
 import { handleHealth } from "./handlers/health.js";
+import { handleReminderQueue } from "./queues/reminderQueue.js";
 import { log } from "./utils/logger.js";
 import { validateEnv } from "./schemas/envSchema.js";
 
@@ -48,4 +49,13 @@ export default {
     const validatedEnv = validateEnv(env);
     await handleScheduled(controller, validatedEnv);
   },
-} satisfies ExportedHandler<Env>;
+
+  async queue(
+    batch: MessageBatch<unknown>,
+    env: Env,
+    _ctx: ExecutionContext,
+  ): Promise<void> {
+    const validatedEnv = validateEnv(env);
+    await handleReminderQueue(batch, validatedEnv);
+  },
+} satisfies ExportedHandler<Env, unknown>;

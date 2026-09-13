@@ -10,20 +10,15 @@ import { UserSettings } from "../models/userSettings.js";
 import { DEFAULT_USER_SETTINGS } from "../models/userSettings.js";
 import { SubscriptionService } from "./subscriptionService.js";
 import { Env } from "../types/env.js";
+import { sendRichMessage } from "./telegramService.js";
 import {
-  sendMessage,
-  TelegramInlineKeyboardMarkup,
-} from "./telegramService.js";
+  reminderPresentation,
+  REMINDER_MESSAGE_SIZE,
+} from "../bot/ui/reminderPresentation.js";
 import { decrypt, parseEncryptedPayload } from "../crypto/encryption.js";
 import { deriveUserKey } from "../crypto/keyDerivation.js";
 import { log } from "../utils/logger.js";
-import {
-  addDays,
-  formatDate,
-  getBillingAnchorDay,
-  getLocalTimeInfo,
-  getNextBillingDate,
-} from "../utils/date.js";
+import { addDays, formatDate, getLocalTimeInfo } from "../utils/date.js";
 import {
   isAutoRenewing,
   isTrialSubscription,
@@ -49,101 +44,6 @@ function isReminderDispatchSlot(
   return localHour === reminderHour && localMinute < 30;
 }
 
-function formatReminderMessage(sub: Subscription): string {
-  const lines: string[] = [];
-
-  if (isTrialSubscription(sub)) {
-    lines.push(
-      `体验到期提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 到期，之后可能开始扣款。`,
-    );
-  } else if (!isAutoRenewing(sub)) {
-    lines.push(
-      `服务到期提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 到期，已关闭自动续费。`,
-    );
-  } else {
-    lines.push(`扣款提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 扣款。`);
-  }
-
-  if (sub.price !== undefined) {
-    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
-  }
-
-  lines.push("\n发送 /list 查看详情或管理订阅。");
-  return lines.join("\n");
-}
-
-function getReminderKindLabel(sub: Subscription): string {
-  if (isTrialSubscription(sub)) return "体验到期";
-  if (!isAutoRenewing(sub)) return "服务到期";
-  return "扣款";
-}
-
-function formatReminderListItem(sub: Subscription, index: number): string {
-  const parts = [
-    `${index}. ${getReminderKindLabel(sub)}：${sub.name}`,
-    `日期：${sub.nextBillingDate}`,
-  ];
-
-  if (sub.price !== undefined) {
-    parts.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
-  }
-
-  parts.push("发送 /list 管理");
-  return parts.join("｜");
-}
-
-function formatCombinedReminderMessage(subs: Subscription[]): string {
-  if (subs.length === 1) {
-    return formatReminderMessage(subs[0]);
-  }
-
-  const sorted = [...subs].sort((a, b) => {
-    const byDate = a.nextBillingDate.localeCompare(b.nextBillingDate);
-    if (byDate !== 0) return byDate;
-    return a.name.localeCompare(b.name);
-  });
-
-  return [
-    `订阅提醒：以下 ${sorted.length} 个项目需要关注。`,
-    "",
-    ...sorted.map((sub, index) => formatReminderListItem(sub, index + 1)),
-  ].join("\n");
-}
-
-function canRenewOneCycle(sub: Subscription): boolean {
-  const billingAnchorDay =
-    sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
-  return (
-    getNextBillingDate(
-      sub.nextBillingDate,
-      sub.billingCycle,
-      billingAnchorDay,
-      sub.billingInterval,
-    ) !== null
-  );
-}
-
-function formatRenewButtonLabel(sub: Subscription, total: number): string {
-  if (total === 1) return "已续费一个周期";
-  return `已续费：${sub.name}`;
-}
-
-function reminderRenewKeyboard(
-  subs: Subscription[],
-): TelegramInlineKeyboardMarkup | undefined {
-  const renewableSubs = subs.filter(canRenewOneCycle);
-  if (renewableSubs.length === 0) return undefined;
-
-  return {
-    inline_keyboard: renewableSubs.map((sub) => [
-      {
-        text: formatRenewButtonLabel(sub, renewableSubs.length),
-        callback_data: `reminder:renew:${sub.id}:${sub.nextBillingDate}`,
-      },
-    ]),
-  };
-}
-
 export interface ReminderEntryResult {
   sent: boolean;
   advanced: boolean;
@@ -159,6 +59,25 @@ export interface ReminderBatchResult {
   messages: number;
   advanced: number;
 }
+
+export interface ReminderQueueProcessResult extends ReminderBatchResult {
+  retryableFailure: boolean;
+}
+
+interface ReminderProcessingOptions {
+  deferAdvanceOnRetryableFailure: boolean;
+  throwOnEvaluationError: boolean;
+}
+
+const DIRECT_PROCESSING_OPTIONS: ReminderProcessingOptions = {
+  deferAdvanceOnRetryableFailure: false,
+  throwOnEvaluationError: false,
+};
+
+const QUEUE_PROCESSING_OPTIONS: ReminderProcessingOptions = {
+  deferAdvanceOnRetryableFailure: true,
+  throwOnEvaluationError: true,
+};
 
 interface PendingReminder {
   entry: ReminderEntry;
@@ -207,6 +126,7 @@ async function evaluateReminderEntry(
   entry: ReminderEntry,
   date: string,
   daysAhead: number,
+  throwOnError = false,
 ): Promise<{ pending?: PendingReminder; advanced: boolean }> {
   const result = {
     pending: undefined as PendingReminder | undefined,
@@ -353,11 +273,18 @@ async function evaluateReminderEntry(
     log("error", "Error processing reminder entry", {
       date,
       subId: entry.subscriptionId,
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.name : "UnknownError",
     });
+    if (throwOnError) throw error;
   }
 
   return result;
+}
+
+function isRetryableTelegramFailure(status?: number): boolean {
+  return (
+    status === undefined || status === 401 || status === 429 || status >= 500
+  );
 }
 
 async function advancePendingReminder(
@@ -375,17 +302,12 @@ async function advancePendingReminder(
   );
 }
 
-function logSendFailure(
-  reminders: PendingReminder[],
-  status?: number,
-  description?: string,
-): void {
+function logSendFailure(reminders: PendingReminder[], status?: number): void {
   for (const reminder of reminders) {
     log("warn", "Failed to send reminder", {
       date: reminder.date,
       subId: reminder.entry.subscriptionId,
       status,
-      description,
     });
   }
 }
@@ -425,9 +347,7 @@ async function markRemindersSent(
       date: reminder.date,
       subId: reminder.entry.subscriptionId,
       error:
-        outcome.reason instanceof Error
-          ? outcome.reason.message
-          : String(outcome.reason),
+        outcome.reason instanceof Error ? outcome.reason.name : "UnknownError",
     });
   });
 }
@@ -445,7 +365,7 @@ async function advancePendingReminders(
         log("error", "Failed to advance due subscription", {
           date: reminder.date,
           subId: reminder.entry.subscriptionId,
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.name : "UnknownError",
         });
         return false;
       }
@@ -459,17 +379,49 @@ async function processPendingReminderBatch(
   reminderRepo: ReminderRepository,
   subscriptionService: SubscriptionService,
   reminders: PendingReminder[],
-): Promise<ReminderBatchResult> {
-  const result: ReminderBatchResult = { sent: 0, messages: 0, advanced: 0 };
+  options: ReminderProcessingOptions,
+): Promise<ReminderQueueProcessResult> {
+  if (reminders.length > REMINDER_MESSAGE_SIZE) {
+    const combined: ReminderQueueProcessResult = {
+      sent: 0,
+      messages: 0,
+      advanced: 0,
+      retryableFailure: false,
+    };
+    const sorted = [...reminders].sort(
+      (a, b) =>
+        a.sub.nextBillingDate.localeCompare(b.sub.nextBillingDate) ||
+        a.sub.name.localeCompare(b.sub.name),
+    );
+    for (let start = 0; start < sorted.length; start += REMINDER_MESSAGE_SIZE) {
+      const chunk = await processPendingReminderBatch(
+        env,
+        reminderRepo,
+        subscriptionService,
+        sorted.slice(start, start + REMINDER_MESSAGE_SIZE),
+        options,
+      );
+      combined.sent += chunk.sent;
+      combined.messages += chunk.messages;
+      combined.advanced += chunk.advanced;
+      combined.retryableFailure ||= chunk.retryableFailure;
+    }
+    return combined;
+  }
+  const result: ReminderQueueProcessResult = {
+    sent: 0,
+    messages: 0,
+    advanced: 0,
+    retryableFailure: false,
+  };
   const first = reminders[0];
   const subs = reminders.map((item) => item.sub);
 
   try {
-    const sendResult = await sendMessage(
+    const sendResult = await sendRichMessage(
       env,
       first.userProfile.chatId,
-      formatCombinedReminderMessage(subs),
-      { reply_markup: reminderRenewKeyboard(subs) },
+      reminderPresentation(subs),
     );
 
     if (sendResult.ok) {
@@ -477,14 +429,16 @@ async function processPendingReminderBatch(
       result.messages = 1;
       await markRemindersSent(reminderRepo, reminders);
     } else {
-      logSendFailure(reminders, sendResult.status, sendResult.description);
+      logSendFailure(reminders, sendResult.status);
+      result.retryableFailure = isRetryableTelegramFailure(sendResult.status);
     }
-  } catch (error) {
-    logSendFailure(
-      reminders,
-      undefined,
-      error instanceof Error ? error.message : String(error),
-    );
+  } catch {
+    logSendFailure(reminders, undefined);
+    result.retryableFailure = true;
+  }
+
+  if (result.retryableFailure && options.deferAdvanceOnRetryableFailure) {
+    return result;
   }
 
   result.advanced = await advancePendingReminders(
@@ -522,6 +476,7 @@ export async function processReminderEntry(
     reminderRepo,
     subscriptionService,
     [pending],
+    DIRECT_PROCESSING_OPTIONS,
   );
   return {
     sent: batchResult.sent === 1,
@@ -538,7 +493,60 @@ export async function processReminderEntries(
   inputs: ReminderEntryInput[],
   daysAhead = getReminderDaysAhead(env),
 ): Promise<ReminderBatchResult> {
-  const result: ReminderBatchResult = { sent: 0, messages: 0, advanced: 0 };
+  const result = await processReminderEntriesInternal(
+    env,
+    reminderRepo,
+    subRepo,
+    userRepo,
+    subscriptionService,
+    inputs,
+    daysAhead,
+    DIRECT_PROCESSING_OPTIONS,
+  );
+  return {
+    sent: result.sent,
+    messages: result.messages,
+    advanced: result.advanced,
+  };
+}
+
+export async function processReminderQueueEntries(
+  env: Env,
+  reminderRepo: ReminderRepository,
+  subRepo: SubscriptionRepository,
+  userRepo: UserRepository,
+  subscriptionService: SubscriptionService,
+  inputs: ReminderEntryInput[],
+  daysAhead = getReminderDaysAhead(env),
+): Promise<ReminderQueueProcessResult> {
+  return processReminderEntriesInternal(
+    env,
+    reminderRepo,
+    subRepo,
+    userRepo,
+    subscriptionService,
+    inputs,
+    daysAhead,
+    QUEUE_PROCESSING_OPTIONS,
+  );
+}
+
+async function processReminderEntriesInternal(
+  env: Env,
+  reminderRepo: ReminderRepository,
+  subRepo: SubscriptionRepository,
+  userRepo: UserRepository,
+  subscriptionService: SubscriptionService,
+  inputs: ReminderEntryInput[],
+  daysAhead: number,
+  options: ReminderProcessingOptions,
+): Promise<ReminderQueueProcessResult> {
+  const result: ReminderQueueProcessResult = {
+    sent: 0,
+    messages: 0,
+    advanced: 0,
+    retryableFailure: false,
+  };
   const pendingByUser = new Map<string, PendingReminder[]>();
 
   for (const { entry, date } of inputs) {
@@ -551,6 +559,7 @@ export async function processReminderEntries(
       entry,
       date,
       daysAhead,
+      options.throwOnEvaluationError,
     );
 
     if (advanced) result.advanced++;
@@ -570,10 +579,12 @@ export async function processReminderEntries(
       reminderRepo,
       subscriptionService,
       reminders,
+      options,
     );
     result.sent += batchResult.sent;
     result.messages += batchResult.messages;
     result.advanced += batchResult.advanced;
+    result.retryableFailure ||= batchResult.retryableFailure;
   }
 
   return result;
