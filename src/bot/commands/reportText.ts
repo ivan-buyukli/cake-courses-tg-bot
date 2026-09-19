@@ -21,7 +21,7 @@ export async function reportTextCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     logger.warn("Report text command without userKey");
     return;
   }
@@ -36,7 +36,7 @@ export async function reportTextCommand(ctx: BotContext): Promise<void> {
     ctx.env.ENCRYPTION_KEY,
   );
   if (subscriptions.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。", {
+    await ctx.reply("You have not added any subscriptions yet.", {
       reply_markup: emptySubscriptionsKeyboard(),
     });
     return;
@@ -96,25 +96,25 @@ function buildRichReport(
     }),
   ]);
   const noteParts: string[] = [];
-  if (data.trialCount > 0) noteParts.push(`体验 ${data.trialCount}`);
+  if (data.trialCount > 0) noteParts.push(`Trial ${data.trialCount}`);
   if (data.nonRenewingCount > 0) {
-    noteParts.push(`已停续费 ${data.nonRenewingCount}`);
+    noteParts.push(`Auto-renewal off ${data.nonRenewingCount}`);
   }
 
   return {
     blocks: [
-      { type: "paragraph", text: "订阅支出明细" },
+      { type: "paragraph", text: "Subscription spending details" },
       {
         type: "paragraph",
         text:
-          `未来30天 · ${data.upcomingWindowStart} 至 ${data.upcomingWindowEnd}\n` +
-          `合计 ${formatMoney(data.currentMonthTotal, data.baseCurrency)}`,
+          `Next 30 days · ${data.upcomingWindowStart} to ${data.upcomingWindowEnd}\n` +
+          `Total ${formatMoney(data.currentMonthTotal, data.baseCurrency)}`,
       },
       ...(noteParts.length > 0
         ? [
             {
               type: "paragraph" as const,
-              text: `未计入金额：${noteParts.join("，")}`,
+              text: `Excluded from totals: ${noteParts.join(", ")}`,
             },
           ]
         : []),
@@ -127,31 +127,36 @@ function buildRichReport(
               is_striped: true as const,
               cells: [
                 [
-                  richTableCell("日期", { header: true }),
-                  richTableCell("订阅", { header: true }),
-                  richTableCell("金额", { header: true, align: "right" }),
+                  richTableCell("Date", { header: true }),
+                  richTableCell("Subscription", { header: true }),
+                  richTableCell("Amount", { header: true, align: "right" }),
                 ],
                 ...currentRows,
               ],
             },
           ]
-        : [{ type: "paragraph" as const, text: "未来30天暂无扣款。" }]),
+        : [
+            {
+              type: "paragraph" as const,
+              text: "No payments in the next 30 days.",
+            },
+          ]),
       ...(data.currentMonthItems.length > 30
         ? [
             {
               type: "paragraph" as const,
-              text: `显示前 30 项，共 ${data.currentMonthItems.length} 项；汇总包含全部项目。`,
+              text: `Showing the first 30 of ${data.currentMonthItems.length} items; totals include all items.`,
             },
           ]
         : []),
       { type: "divider" },
       {
         type: "paragraph",
-        text: `未来12个月 · ${formatMoney(data.yearTotal, data.baseCurrency)}`,
+        text: `Next 12 months · ${formatMoney(data.yearTotal, data.baseCurrency)}`,
       },
       {
         type: "details",
-        summary: "查看按月汇总",
+        summary: "View monthly totals",
         blocks: [
           {
             type: "table",
@@ -160,9 +165,9 @@ function buildRichReport(
             is_striped: true,
             cells: [
               [
-                richTableCell("月份", { header: true }),
-                richTableCell("项目", { header: true, align: "right" }),
-                richTableCell("合计", { header: true, align: "right" }),
+                richTableCell("Month", { header: true }),
+                richTableCell("Items", { header: true, align: "right" }),
+                richTableCell("Total", { header: true, align: "right" }),
               ],
               ...yearRows,
             ],

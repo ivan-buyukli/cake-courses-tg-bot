@@ -9,9 +9,9 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
   if (!ctx.userKey) {
     await ctx.reply(
-      "欢迎使用订阅管理机器人。\n\n" +
-        "我可以帮你记录周期性订阅、提醒下次扣款，并汇总每月支出。\n\n" +
-        "使用底部菜单开始。",
+      "Welcome to Subscription Bot.\n\n" +
+        "I can track your recurring subscriptions, remind you about upcoming payments, and summarize your monthly spending.\n\n" +
+        "Use the bottom menu to get started.",
       { reply_markup: mainMenuReplyKeyboard() },
     );
     logger.info("Start command without userKey");
@@ -36,18 +36,22 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
   if (isFirstTime) {
     await ctx.reply(
-      "欢迎使用订阅管理机器人。\n\n" +
-        "我可以帮你记录周期性订阅、提醒下次扣款，并汇总每月支出。\n\n" +
-        "从底部菜单添加第一个订阅。",
+      "Welcome to Subscription Bot.\n\n" +
+        "I can track your recurring subscriptions, remind you about upcoming payments, and summarize your monthly spending.\n\n" +
+        "Use the bottom menu to add your first subscription.",
       {
         reply_markup: mainMenuReplyKeyboard(),
       },
     );
     logger.info("Start command: first-time welcome");
   } else {
-    await ctx.reply("欢迎回来。\n\n" + "使用底部菜单查看订阅、提醒和报告。", {
-      reply_markup: mainMenuReplyKeyboard(),
-    });
+    await ctx.reply(
+      "Welcome back.\n\n" +
+        "Use the bottom menu to view subscriptions, reminders, and reports.",
+      {
+        reply_markup: mainMenuReplyKeyboard(),
+      },
+    );
     logger.info("Start command: returning user welcome", {
       subscriptionCount: existingIds.length,
     });

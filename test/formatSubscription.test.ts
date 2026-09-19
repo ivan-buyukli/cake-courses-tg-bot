@@ -27,7 +27,7 @@ describe("formatSubscription", () => {
   it("formats compact list lines with relative billing date", () => {
     const line = formatSubscriptionLine(createSubscription(), 0, "2026-05-18");
 
-    expect(line).toBe("1. Netflix — 12.99 USD — 下次扣款：14 天后");
+    expect(line).toBe("1. Netflix — 12.99 USD — Next payment: 14 days away");
   });
 
   it("omits missing prices from compact list lines", () => {
@@ -37,13 +37,13 @@ describe("formatSubscription", () => {
       "2026-05-18",
     );
 
-    expect(line).toBe("2. Netflix — 下次扣款：14 天后");
+    expect(line).toBe("2. Netflix — Next payment: 14 days away");
   });
 
   it("formats relative billing dates for today and past dates", () => {
-    expect(formatRelativeBillingDate("2026-05-18", "2026-05-18")).toBe("今天");
+    expect(formatRelativeBillingDate("2026-05-18", "2026-05-18")).toBe("Today");
     expect(formatRelativeBillingDate("2026-05-17", "2026-05-18")).toBe(
-      "已过期 1 天",
+      "Overdue by 1 day",
     );
   });
 
@@ -54,7 +54,7 @@ describe("formatSubscription", () => {
     );
 
     expect(line).toBe(
-      "1. Netflix — 12.99 USD — 每年 — 下次扣款：2026-06-01 — ID：12345678",
+      "1. Netflix — 12.99 USD — Yearly — Next payment: 2026-06-01 — ID: 12345678",
     );
   });
 
@@ -65,7 +65,7 @@ describe("formatSubscription", () => {
       "2026-05-18",
     );
 
-    expect(line).toBe("1. [已暂停] Netflix — 12.99 USD");
+    expect(line).toBe("1. [Paused] Netflix — 12.99 USD");
   });
 
   it("shows paused label in full list line", () => {
@@ -75,7 +75,7 @@ describe("formatSubscription", () => {
     );
 
     expect(line).toBe(
-      "1. [已暂停] Netflix — 12.99 USD — 每月 — 下次扣款：2026-06-01 — ID：12345678",
+      "1. [Paused] Netflix — 12.99 USD — Monthly — Next payment: 2026-06-01 — ID: 12345678",
     );
   });
 
@@ -86,7 +86,7 @@ describe("formatSubscription", () => {
       "2026-05-18",
     );
 
-    expect(line).toBe("1. Netflix — 12.99 USD — 下次扣款：14 天后");
+    expect(line).toBe("1. Netflix — 12.99 USD — Next payment: 14 days away");
   });
 
   it("shows trial label and trial date wording", () => {
@@ -97,7 +97,7 @@ describe("formatSubscription", () => {
     );
 
     expect(line).toBe(
-      "1. [体验] Netflix — 12.99 USD — 体验到期/首次扣款：14 天后",
+      "1. [Trial] Netflix — 12.99 USD — Trial ends / first payment: 14 days away",
     );
   });
 
@@ -108,6 +108,8 @@ describe("formatSubscription", () => {
       "2026-05-18",
     );
 
-    expect(line).toBe("1. [已停续费] Netflix — 12.99 USD — 服务到期：14 天后");
+    expect(line).toBe(
+      "1. [Auto-renewal off] Netflix — 12.99 USD — Service expires: 14 days away",
+    );
   });
 });

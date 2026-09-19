@@ -19,8 +19,8 @@ describe("addConversation validators", () => {
       expect(validateAddName("YouTube Premium")).toBeNull();
     });
     it("rejects empty names", () => {
-      expect(validateAddName("")).toBe("订阅名称不能为空。");
-      expect(validateAddName("   ")).toBe("订阅名称不能为空。");
+      expect(validateAddName("")).toBe("Subscription name cannot be empty.");
+      expect(validateAddName("   ")).toBe("Subscription name cannot be empty.");
     });
   });
 
@@ -42,11 +42,15 @@ describe("addConversation validators", () => {
     });
     it("rejects negative numbers", () => {
       const result = validateAddPrice("-1");
-      expect(result.error).toBe("请输入非负数字，或点击按钮跳过。");
+      expect(result.error).toBe(
+        "Enter a non-negative number, or select Skip price.",
+      );
     });
     it("rejects non-numeric input", () => {
       const result = validateAddPrice("abc");
-      expect(result.error).toBe("请输入非负数字，或点击按钮跳过。");
+      expect(result.error).toBe(
+        "Enter a non-negative number, or select Skip price.",
+      );
     });
   });
 
@@ -58,7 +62,7 @@ describe("addConversation validators", () => {
     });
     it("requires currency when price exists", () => {
       const result = validateCurrencyInput("skip", true);
-      expect(result.error).toBe("已填写价格时必须选择币种。");
+      expect(result.error).toBe("A currency is required when a price is set.");
     });
     it("accepts valid 3-letter codes", () => {
       const result = validateCurrencyInput("EUR", true);
@@ -67,7 +71,9 @@ describe("addConversation validators", () => {
     });
     it("rejects invalid codes", () => {
       const result = validateCurrencyInput("EURO", true);
-      expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
+      expect(result.error).toBe(
+        "Enter a 3-letter currency code, such as CNY or USD.",
+      );
     });
   });
 
@@ -135,11 +141,11 @@ describe("addConversation validators", () => {
     it("supports year and month navigation", () => {
       const keyboard = dateKeyboard("2026-05");
       expect(keyboard.inline_keyboard[0]).toEqual([
-        { text: "« 上一年", callback_data: "adddate:month:2025-05" },
-        { text: "‹ 上月", callback_data: "adddate:month:2026-04" },
-        { text: "2026年5月", callback_data: "adddate:noop" },
-        { text: "下月 ›", callback_data: "adddate:month:2026-06" },
-        { text: "下一年 »", callback_data: "adddate:month:2027-05" },
+        { text: "« Previous year", callback_data: "adddate:month:2025-05" },
+        { text: "‹ Previous month", callback_data: "adddate:month:2026-04" },
+        { text: "2026-05", callback_data: "adddate:noop" },
+        { text: "Next month ›", callback_data: "adddate:month:2026-06" },
+        { text: "Next year »", callback_data: "adddate:month:2027-05" },
       ]);
     });
   });
@@ -202,8 +208,8 @@ describe("addConversation validators", () => {
     it("formats the preview dates", () => {
       expect(formatBillingDatePreview("2026-05-18", "monthly")).toBe(
         [
-          "周期：每月",
-          "未来扣款日期预览：",
+          "Cycle: Monthly",
+          "Upcoming billing dates: ",
           "1. 2026-05-18",
           "2. 2026-06-18",
           "3. 2026-07-18",
@@ -216,10 +222,10 @@ describe("addConversation validators", () => {
     it("explains that custom cycles do not auto-advance", () => {
       expect(formatBillingDatePreview("2026-05-18", "custom")).toBe(
         [
-          "周期：自定义",
-          "未来扣款日期预览：",
+          "Cycle: Custom",
+          "Upcoming billing dates: ",
           "1. 2026-05-18",
-          "自定义周期不会自动推进，请之后手动修改下次扣款日期。",
+          "Custom cycles do not advance automatically. Update the next billing date manually.",
         ].join("\n"),
       );
     });
@@ -232,8 +238,8 @@ describe("addConversation validators", () => {
         }),
       ).toBe(
         [
-          "周期：每 4 周",
-          "未来扣款日期预览：",
+          "Cycle: Every 4 weeks",
+          "Upcoming billing dates: ",
           "1. 2026-05-18",
           "2. 2026-06-15",
           "3. 2026-07-13",
@@ -251,8 +257,8 @@ describe("addConversation validators", () => {
         }),
       ).toBe(
         [
-          "周期：每 6 个月",
-          "未来扣款日期预览：",
+          "Cycle: Every 6 months",
+          "Upcoming billing dates: ",
           "1. 2026-05-18",
           "2. 2026-11-18",
           "3. 2027-05-18",
@@ -268,8 +274,8 @@ describe("addConversation validators", () => {
         }),
       ).toBe(
         [
-          "周期：每 2 年",
-          "未来扣款日期预览：",
+          "Cycle: Every 2 years",
+          "Upcoming billing dates: ",
           "1. 2026-05-18",
           "2. 2028-05-18",
           "3. 2030-05-18",

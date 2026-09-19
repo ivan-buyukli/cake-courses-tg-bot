@@ -96,7 +96,9 @@ describe("exportCommand", () => {
 
     await exportCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
   });
 
   it("exports subscriptions as a JSON document without internal identifiers", async () => {
@@ -122,7 +124,7 @@ describe("exportCommand", () => {
     expect(text).not.toContain("userKey");
     expect(text).not.toContain("encryptedPayload");
     expect(text).not.toContain("123456789");
-    expect(options.caption).toContain("不包含 Telegram 用户 ID");
+    expect(options.caption).toContain("does not include Telegram user IDs");
     expect(ctx.api.sendChatAction).toHaveBeenCalledWith(123, "upload_document");
   });
 

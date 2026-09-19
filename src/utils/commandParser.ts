@@ -28,8 +28,8 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   // args[0] is the command itself (e.g. "/add"), so we need at least 6 elements
   if (args.length < 6) {
     throw new ValidationError(
-      "用法：/add <名称> <价格> <币种> <周期> <下次扣款日期>\n" +
-        "示例：/add Netflix 12.99 CNY monthly 2026-06-01",
+      "Usage: /add <Name> <Price> <Currency> <Cycle> <Next billing date>\n" +
+        "Example: /add Netflix 12.99 CNY monthly 2026-06-01",
     );
   }
 
@@ -40,19 +40,21 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   const cycleText = args.slice(4, -1).join(" ");
 
   if (!name || name.trim().length === 0) {
-    throw new ValidationError("订阅名称不能为空。");
+    throw new ValidationError("Subscription name cannot be empty.");
   }
 
   const price = Number(priceStr);
   if (!Number.isFinite(price) || price < 0) {
-    throw new ValidationError(`价格无效：“${priceStr}”。价格必须是非负数字。`);
+    throw new ValidationError(
+      `Invalid price: “${priceStr}”. Price must be a non-negative number.`,
+    );
   }
 
   const parsedCycle = parseBillingCycleText(cycleText);
 
   if (!DATE_REGEX.test(nextBillingDate)) {
     throw new ValidationError(
-      `日期无效：“${nextBillingDate}”。请使用 YYYY-MM-DD 格式。`,
+      `Invalid date: “${nextBillingDate}”. Use YYYY-MM-DD format.`,
     );
   }
 
@@ -63,7 +65,7 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
     parsedDate.toISOString().slice(0, 10) !== nextBillingDate
   ) {
     throw new ValidationError(
-      `日期无效：“${nextBillingDate}”。请使用 YYYY-MM-DD 格式。`,
+      `Invalid date: “${nextBillingDate}”. Use YYYY-MM-DD format.`,
     );
   }
 

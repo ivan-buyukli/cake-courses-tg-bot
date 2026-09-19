@@ -30,7 +30,7 @@ import {
 
 export function validateEditName(name: string): string | null {
   const trimmed = name.trim();
-  if (trimmed.length === 0) return "订阅名称不能为空。";
+  if (trimmed.length === 0) return "Subscription name cannot be empty.";
   return null;
 }
 
@@ -41,7 +41,7 @@ export function validateEditPrice(priceStr: string): {
   const trimmed = priceStr.trim();
   const price = Number(trimmed);
   if (!Number.isFinite(price) || price < 0) {
-    return { price: 0, error: "请输入非负数字。" };
+    return { price: 0, error: "Enter a non-negative number." };
   }
   return { price };
 }
@@ -57,29 +57,29 @@ export async function editFieldConversation(
     conversation,
     ctx,
     subId,
-    "正在编辑订阅。可随时发送 /cancel 或“取消”退出。",
+    "Editing a subscription. Send /cancel or “Cancel” at any time to exit.",
   );
   if (!started) return;
   const { session, sub } = started;
 
   const fieldLabels: Record<ScalarEditableField, string> = {
-    name: "名称",
-    price: "价格",
-    currency: "币种",
-    date: "下次扣款日期",
+    name: "Name",
+    price: "Price",
+    currency: "Currency",
+    date: "Next billing date",
   };
 
   const promptMap: Record<ScalarEditableField, string> = {
-    name: `当前名称：${sub.name}\n请发送新名称。`,
+    name: `Current name: ${sub.name}\nEnter the new name.`,
     price:
       sub.price !== undefined
-        ? `当前价格：${sub.price}\n请发送新价格（数字）。`
-        : "当前未填写价格。\n请发送价格（数字）。",
+        ? `Current price: ${sub.price}\nEnter the new price as a number.`
+        : "No price is currently set.\nEnter the price as a number.",
     currency:
       sub.currency !== undefined
-        ? `当前币种：${sub.currency}\n请选择新币种，或点“其他”输入代码。`
-        : "当前未填写币种。\n请选择币种，或点“其他”输入代码。",
-    date: `当前下次扣款日期：${sub.nextBillingDate}\n请选择或输入新日期：`,
+        ? `Current currency: ${sub.currency}\nChoose a new currency, or select “Other” to enter a code.`
+        : "No currency is currently set.\nChoose a currency, or select “Other” to enter a code.",
+    date: `Current next billing date: ${sub.nextBillingDate}\nChoose or enter a new date: `,
   };
 
   const now = new Date().toISOString();
@@ -87,20 +87,20 @@ export async function editFieldConversation(
 
   if (field === "name") {
     await ctx.reply(promptMap[field], {
-      reply_markup: forceReply("输入新的订阅名称"),
+      reply_markup: forceReply("Enter a new subscription name"),
     });
     while (true) {
       const inputCtx = await conversation.waitFor("message:text");
       const input = inputCtx.msg.text;
       if (isCancelInput(input)) {
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         await restoreMainMenu(ctx);
         return;
       }
       const error = validateEditName(input);
       if (error) {
-        await ctx.reply(error + "\n请在当前步骤重新输入。", {
-          reply_markup: forceReply("输入新的订阅名称"),
+        await ctx.reply(error + "\nPlease try again at this step.", {
+          reply_markup: forceReply("Enter a new subscription name"),
         });
         continue;
       }
@@ -109,20 +109,20 @@ export async function editFieldConversation(
     }
   } else if (field === "price") {
     await ctx.reply(promptMap[field], {
-      reply_markup: forceReply("输入新的价格"),
+      reply_markup: forceReply("Enter a new price"),
     });
     while (true) {
       const inputCtx = await conversation.waitFor("message:text");
       const input = inputCtx.msg.text;
       if (isCancelInput(input)) {
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         await restoreMainMenu(ctx);
         return;
       }
       const result = validateEditPrice(input);
       if (result.error) {
-        await ctx.reply(result.error + "\n请在当前步骤重新输入。", {
-          reply_markup: forceReply("输入新的价格"),
+        await ctx.reply(result.error + "\nPlease try again at this step.", {
+          reply_markup: forceReply("Enter a new price"),
         });
         continue;
       }
@@ -163,8 +163,8 @@ export async function editFieldConversation(
     ctx,
     updated,
     options,
-    `✅ 已保存“${updated.name}”的${fieldLabels[field]}。`,
-    `已更新“${updated.name}”的${fieldLabels[field]}。`,
+    `✅ Saved “${updated.name}”: ${fieldLabels[field]}.`,
+    `Updated “${updated.name}”: ${fieldLabels[field]}.`,
   );
 }
 
@@ -178,18 +178,19 @@ export async function editCycleConversation(
     conversation,
     ctx,
     subId,
-    "正在编辑扣款周期。可随时发送 /cancel 或“取消”退出。",
+    "Editing the billing cycle. Send /cancel or “Cancel” at any time to exit.",
   );
   if (!started) return;
   const { session, sub } = started;
 
   const cycleSelection = await collectCycleInput(conversation, ctx, {
-    prompt: "请选择新的扣款周期：",
+    prompt: "Choose a new billing cycle: ",
     callbackPattern: /^editcycle:/,
     callbackData: (cycle) => `editcycle:${cycle}:${subId}`,
     parseCycle: (callbackData) =>
       parseEditCycleCallbackData(callbackData)?.cycle ?? null,
-    invalidSelectionMessage: "请点击按钮选择扣款周期，或点击取消。",
+    invalidSelectionMessage:
+      "Choose a billing cycle using the buttons, or select Cancel.",
     cancelData: `editcycle:cancel:${subId}`,
   });
   if (!cycleSelection) {
@@ -220,8 +221,8 @@ export async function editCycleConversation(
     ctx,
     updated,
     options,
-    `✅ 已将“${updated.name}”的周期更新为${cycleLabel}。`,
-    `已将“${updated.name}”的周期更新为${cycleLabel}。`,
+    `✅ Updated “${updated.name}”: billing cycle set to ${cycleLabel}.`,
+    `Updated “${updated.name}”: billing cycle set to ${cycleLabel}.`,
   );
 }
 
@@ -235,13 +236,13 @@ export async function editReminderConversation(
     conversation,
     ctx,
     subId,
-    "正在编辑提醒方式。可随时发送 /cancel 或“取消”退出。",
+    "Editing reminder preferences. Send /cancel or “Cancel” at any time to exit.",
   );
   if (!started) return;
   const { session, sub } = started;
 
   await ctx.reply(
-    `当前提醒方式：${formatReminderPolicy(sub)}\n\n请选择新的提醒方式：`,
+    `Current reminder preference: ${formatReminderPolicy(sub)}\n\nChoose a new reminder preference: `,
     { reply_markup: reminderPolicyKeyboard(subId, sub.reminderPolicy) },
   );
   const reminderPolicy = await collectReminderPolicyInput(
@@ -269,7 +270,7 @@ export async function editReminderConversation(
     ctx,
     updated,
     options,
-    `✅ 已将“${updated.name}”的提醒方式设为：${policyLabel}。`,
-    `已将“${updated.name}”的提醒方式设为：${policyLabel}。`,
+    `✅ Updated “${updated.name}”: reminder preference set to ${policyLabel}.`,
+    `Updated “${updated.name}”: reminder preference set to ${policyLabel}.`,
   );
 }

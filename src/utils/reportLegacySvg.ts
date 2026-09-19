@@ -17,8 +17,7 @@ const MONTHLY_FILL_OPACITY = "0.35";
 const STACK_BLOCK_GAP = 2;
 
 export function buildReportSvg(report: ReportData): string {
-  const isMonthlyView =
-    report.title.includes("摊平") || report.title.includes("月均");
+  const isMonthlyView = report.title === "Monthly subscription cost";
   const isYearView = report.monthDistribution !== undefined;
 
   let bars: string;
@@ -66,7 +65,7 @@ export function buildReportSvg(report: ReportData): string {
     const legendY = 346;
     legendItems = `
   <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
-  <text x="${legendX + 24}" y="${legendY + 14}" class="legend">预期扣款</text>`;
+  <text x="${legendX + 24}" y="${legendY + 14}" class="legend">Expected payments</text>`;
   } else {
     const chart = createBarChartLayout(
       report.dayDistribution.map((item) => ({
@@ -138,15 +137,17 @@ export function buildReportSvg(report: ReportData): string {
     legendItems = isMonthlyView
       ? `
   <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.teal}" fill-opacity="${MONTHLY_FILL_OPACITY}"/>
-  <text x="${legendX + 24}" y="${legendY + 14}" class="legend">月度摊平</text>
+  <text x="${legendX + 24}" y="${legendY + 14}" class="legend">Monthly</text>
   <rect x="${legendX + 140}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
-  <text x="${legendX + 164}" y="${legendY + 14}" class="legend">实际扣款</text>`
+  <text x="${legendX + 164}" y="${legendY + 14}" class="legend">Actual</text>`
       : `
   <rect x="${legendX + 70}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
-  <text x="${legendX + 94}" y="${legendY + 14}" class="legend">实际扣款</text>`;
+  <text x="${legendX + 94}" y="${legendY + 14}" class="legend">Actual payments</text>`;
   }
 
-  const chartSubtitle = chartEmpty ? "暂无已换算订阅" : report.chartSubtitle;
+  const chartSubtitle = chartEmpty
+    ? "No converted subscriptions"
+    : report.chartSubtitle;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${REPORT_WIDTH}" height="${REPORT_HEIGHT}" viewBox="0 0 ${REPORT_WIDTH} ${REPORT_HEIGHT}">
   <style>
@@ -174,12 +175,12 @@ export function buildReportSvg(report: ReportData): string {
   </style>
   <rect class="bg" x="0" y="0" width="${REPORT_WIDTH}" height="${REPORT_HEIGHT}"/>
   <text x="80" y="86" class="title">${escapeXml(report.title)}</text>
-  <text x="82" y="124" class="subtitle">当前订阅 · 生成于 ${escapeXml(report.generatedAt.slice(0, 10))} · 基准货币 ${report.baseCurrency}</text>
+  <text x="82" y="124" class="subtitle">Current subscriptions · Generated on ${escapeXml(report.generatedAt.slice(0, 10))} · Base currency ${report.baseCurrency}</text>
 
   <rect class="panel" x="72" y="154" width="1056" height="178" rx="8"/>
   <text x="98" y="203" class="label">${escapeXml(report.totalLabel)}</text>
   <text x="96" y="282" class="metric">${escapeXml(formatMoney(report.totalBase, report.baseCurrency))}</text>
-  <text x="98" y="314" class="note">${report.convertedCount} 个订阅已换算为 ${report.baseCurrency}${formatExcludedNote(report)}</text>
+  <text x="98" y="314" class="note">${report.convertedCount} subscriptions converted to ${report.baseCurrency}${formatExcludedNote(report)}</text>
 
   <text x="80" y="360" class="section">${escapeXml(report.chartTitle)}</text>
   <text x="80" y="390" class="note">${escapeXml(chartSubtitle)}</text>
@@ -189,7 +190,7 @@ export function buildReportSvg(report: ReportData): string {
   <line x1="${CHART_X}" y1="${CHART_Y + CHART_HEIGHT / 2}" x2="${CHART_X + CHART_WIDTH}" y2="${CHART_Y + CHART_HEIGHT / 2}" stroke="${COLORS.line}" stroke-width="1"/>
   <line x1="${CHART_X}" y1="${CHART_Y + CHART_HEIGHT}" x2="${CHART_X + CHART_WIDTH}" y2="${CHART_Y + CHART_HEIGHT}" stroke="${COLORS.line}" stroke-width="2"/>
   ${bars}
-  ${chartEmpty ? '<text x="110" y="535" class="subtitle">暂无已换算订阅。</text>' : ""}
+  ${chartEmpty ? '<text x="110" y="535" class="subtitle">No converted subscriptions.</text>' : ""}
 </svg>`;
 }
 
@@ -200,8 +201,8 @@ function monthlyViewBarLabels(
 ): string {
   if (item.actualTotal <= 0 && item.monthlyEquivalentTotal <= 0) return "";
   const labelY = Math.max(topY - 24, CHART_Y - 12);
-  const actualLabel = `扣${compactAmount(item.actualTotal)}`;
-  const monthlyLabel = `摊${compactAmount(item.monthlyEquivalentTotal)}`;
+  const actualLabel = `Paid ${compactAmount(item.actualTotal)}`;
+  const monthlyLabel = `Avg ${compactAmount(item.monthlyEquivalentTotal)}`;
   return `<text x="${x}" y="${labelY.toFixed(1)}" text-anchor="middle">
     <tspan x="${x}" class="bar-label">${escapeXml(actualLabel)}</tspan>
     <tspan x="${x}" dy="16" class="bar-label-monthly">${escapeXml(monthlyLabel)}</tspan>
@@ -235,15 +236,18 @@ function compactAmount(amount: number): string {
 
 function formatExcludedNote(report: ReportData): string {
   const notes: string[] = [];
-  if (report.excluded.trial > 0) notes.push(`体验 ${report.excluded.trial}`);
+  if (report.excluded.trial > 0) notes.push(`Trial ${report.excluded.trial}`);
   if (report.excluded.nonRenewing > 0) {
-    notes.push(`已停续费 ${report.excluded.nonRenewing}`);
+    notes.push(`Auto-renewal off ${report.excluded.nonRenewing}`);
   }
-  return notes.length > 0 ? ` · 未计入：${notes.join("，")}` : "";
+  return notes.length > 0 ? ` · Excluded: ${notes.join(", ")}` : "";
 }
 
 function monthNameFromKey(monthKey: string): string {
-  return `${Number(monthKey.slice(5, 7))}月`;
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${monthKey}-01T00:00:00Z`));
 }
 
 function escapeXml(value: string): string {

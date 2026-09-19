@@ -306,7 +306,9 @@ describe("handleScheduled", () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(JSON.stringify(body.rich_message)).toContain("订阅提醒 · 2 项");
+    expect(JSON.stringify(body.rich_message)).toContain(
+      "Subscription reminders · 2 items",
+    );
     expect(JSON.stringify(body.rich_message)).toContain("Netflix");
     expect(JSON.stringify(body.rich_message)).toContain("Spotify");
   });

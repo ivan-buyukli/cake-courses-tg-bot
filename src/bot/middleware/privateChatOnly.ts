@@ -2,7 +2,7 @@ import { InlineKeyboard, type Middleware } from "grammy";
 import type { BotContext } from "../../types/context.js";
 
 const PRIVATE_CHAT_MESSAGE =
-  "为了保护你的订阅、价格和导出数据，请在与机器人的私聊中使用完整功能。";
+  "To protect your subscriptions, prices, and exports, please use this bot in a private chat.";
 
 function privateChatUrl(ctx: BotContext): string | null {
   const username = ctx.me.username;
@@ -19,7 +19,7 @@ export function privateChatOnly(): Middleware<BotContext> {
     if (ctx.callbackQuery) {
       try {
         await ctx.answerCallbackQuery({
-          text: "为了保护个人数据，请在私聊中使用。",
+          text: "Please use a private chat to protect your personal data.",
           show_alert: true,
         });
       } catch {
@@ -33,7 +33,7 @@ export function privateChatOnly(): Middleware<BotContext> {
 
     const url = privateChatUrl(ctx);
     const replyMarkup = url
-      ? new InlineKeyboard().url("🔒 前往私聊", url).primary()
+      ? new InlineKeyboard().url("🔒 Open private chat", url).primary()
       : undefined;
 
     try {

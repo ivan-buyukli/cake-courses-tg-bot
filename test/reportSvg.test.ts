@@ -15,10 +15,11 @@ import {
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
-    title: "月均订阅成本",
-    totalLabel: "月均订阅成本",
-    chartTitle: "每日摊平成本",
-    chartSubtitle: "活跃自动续费订阅折算为月均后按 30 天摊平",
+    title: "Monthly subscription cost",
+    totalLabel: "Monthly subscription cost",
+    chartTitle: "Daily average cost",
+    chartSubtitle:
+      "Monthly cost of active auto-renewing subscriptions, spread over 30 days",
     generatedAt: "2026-06-17T00:00:00.000Z",
     baseCurrency: "EUR",
     subscriptionCount: 1,
@@ -46,8 +47,8 @@ describe("buildReportSvg", () => {
   it("renders monthly view labels with actual and monthly-equivalent values", () => {
     const svg = buildReportSvg(report());
 
-    expect(svg).toContain("扣13");
-    expect(svg).toContain("摊7");
+    expect(svg).toContain("Paid 13");
+    expect(svg).toContain("Avg 7");
     expect(svg).toContain('class="bar-label-monthly"');
   });
 
@@ -67,10 +68,10 @@ describe("buildReportSvg", () => {
   it("renders upcoming due bars as blocks while keeping one total label", () => {
     const svg = buildReportSvg(
       report({
-        title: "未来30天支出",
-        totalLabel: "未来30天实际扣款",
-        chartTitle: "未来30天扣款分布",
-        chartSubtitle: "按未来30天日期汇总的实际扣款金额",
+        title: "Next 30 days spending",
+        totalLabel: "Actual payments in the next 30 days",
+        chartTitle: "Payment dates over the next 30 days",
+        chartSubtitle: "Actual payments grouped by date over the next 30 days",
         totalBase: 20,
         dayLabelPrefix: "T+",
         dayDistribution: [
@@ -100,12 +101,12 @@ describe("buildReportSvg", () => {
       baseCurrency: "CNY",
       subscriptionCount: 2,
       currentMonthly: report({
-        title: "月均订阅成本",
+        title: "Monthly subscription cost",
         totalBase: 120,
         baseCurrency: "CNY",
       }),
       currentMonthDue: report({
-        title: "未来30天支出",
+        title: "Next 30 days spending",
         totalBase: 80,
         baseCurrency: "CNY",
         dayDistribution: [
@@ -118,7 +119,7 @@ describe("buildReportSvg", () => {
         ],
       }),
       yearlyProjection: report({
-        title: "年度预期支出",
+        title: "Expected annual spending",
         totalBase: 1440,
         baseCurrency: "CNY",
         monthDistribution: [
@@ -138,15 +139,15 @@ describe("buildReportSvg", () => {
       },
     ]);
 
-    expect(svg).toContain("订阅支出总览");
-    expect(svg).toContain("未来 30 天扣款");
-    expect(svg).toContain("月均订阅成本");
-    expect(svg).toContain("未来 12 个月预期");
+    expect(svg).toContain("Subscription spending overview");
+    expect(svg).toContain("Next 30 days");
+    expect(svg).toContain("Monthly subscription cost");
+    expect(svg).toContain("Next 12 months");
     expect(svg).toContain("Private Service");
     expect(svg).toContain("06/20");
     expect(svg).toContain("¥80");
-    expect(svg).toContain("26年6月");
+    expect(svg).toContain("26-06");
     expect(svg).toContain("¥120");
-    expect(svg).toContain("月均 CN¥720.00");
+    expect(svg).toContain("Monthly average CN¥720.00");
   });
 });

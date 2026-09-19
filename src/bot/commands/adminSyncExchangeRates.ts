@@ -34,9 +34,9 @@ export async function adminSyncExchangeRatesCommand(
 
     await ctx.reply(
       [
-        "极简汇率同步完成。",
-        `币种数量：${result.currencyCount}`,
-        `数据时间：${formatTimestamp(result.timestamp)}`,
+        "XCurrency exchange rates synced.",
+        `Currency count: ${result.currencyCount}`,
+        `Data timestamp: ${formatTimestamp(result.timestamp)}`,
       ].join("\n"),
     );
     logger.info("XCurrency exchange rates synced", {
@@ -44,7 +44,9 @@ export async function adminSyncExchangeRatesCommand(
       rateTimestamp: result.timestamp,
     });
   } catch (error) {
-    await ctx.reply("极简汇率同步失败，请稍后重试。");
+    await ctx.reply(
+      "XCurrency exchange rate sync failed. Please try again later.",
+    );
     logger.warn("XCurrency exchange-rate sync failed", {
       errorType: error instanceof Error ? error.name : typeof error,
       errorMessage: error instanceof Error ? error.message : "unknown error",

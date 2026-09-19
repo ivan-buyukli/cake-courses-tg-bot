@@ -23,17 +23,17 @@ async function safeDeleteMessage(ctx: BaseBotContext): Promise<void> {
 
 function customCurrencyKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("返回币种选择", "addcurrency:back")
-    .text("取消", "addcurrency:cancel");
+    .text("Back to currencies", "addcurrency:back")
+    .text("Cancel", "addcurrency:cancel");
 }
 
 export async function collectCurrencyInput(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   {
-    prompt = "请选择币种，或点“其他”输入代码。",
+    prompt = "Choose a currency, or select “Other” to enter a code.",
     hasPrice,
-    cancelMessage = "已取消。",
+    cancelMessage = "Cancelled.",
   }: {
     prompt?: string;
     hasPrice: boolean;
@@ -51,7 +51,9 @@ export async function collectCurrencyInput(
         await ctx.reply(cancelMessage);
         return { cancelled: true };
       }
-      await ctx.reply("请点击按钮选择币种，或发送 /cancel 退出。");
+      await ctx.reply(
+        "Choose a currency using the buttons, or send /cancel to exit.",
+      );
       continue;
     }
     const currencyCallbackData = currencyCtx.callbackQuery?.data;
@@ -61,7 +63,7 @@ export async function collectCurrencyInput(
     const parsedCurrency = parseAddCurrencyCallbackData(currencyCallbackData);
 
     if (!parsedCurrency) {
-      await currencyCtx.answerCallbackQuery("无效的币种选择。");
+      await currencyCtx.answerCallbackQuery("Invalid currency selection.");
       continue;
     }
 
@@ -75,7 +77,7 @@ export async function collectCurrencyInput(
 
     if (parsedCurrency.action === "skip") {
       if (hasPrice) {
-        await ctx.reply("已填写价格时必须选择币种。");
+        await ctx.reply("A currency is required when a price is set.");
         continue;
       }
       await safeDeleteMessage(currencyCtx);
@@ -84,7 +86,7 @@ export async function collectCurrencyInput(
 
     if (parsedCurrency.action === "other") {
       await safeDeleteMessage(currencyCtx);
-      await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD。", {
+      await ctx.reply("Enter a 3-letter currency code, such as CNY or USD.", {
         reply_markup: customCurrencyKeyboard(),
       });
 
@@ -100,8 +102,8 @@ export async function collectCurrencyInput(
           const result = validateCurrencyInput(customCurrencyText, hasPrice);
           if (result.error || !result.currency) {
             await ctx.reply(
-              (result.error ?? "请输入有效的币种代码。") +
-                "\n请留在当前步骤重新输入。",
+              (result.error ?? "Enter a valid currency code.") +
+                "\nPlease try again at this step.",
             );
             continue;
           }
@@ -114,7 +116,9 @@ export async function collectCurrencyInput(
         );
 
         if (!customParsed) {
-          await customCurrencyCtx.answerCallbackQuery("无效的币种选择。");
+          await customCurrencyCtx.answerCallbackQuery(
+            "Invalid currency selection.",
+          );
           continue;
         }
 
@@ -131,7 +135,9 @@ export async function collectCurrencyInput(
           return { cancelled: true };
         }
 
-        await customCurrencyCtx.answerCallbackQuery("请发送自定义币种代码。");
+        await customCurrencyCtx.answerCallbackQuery(
+          "Enter a custom currency code.",
+        );
       }
 
       continue;

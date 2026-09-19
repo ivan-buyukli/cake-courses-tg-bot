@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseFlexibleDate } from "../../src/utils/parseDate.js";
 
-const ERROR_MESSAGE =
-  "日期无效。支持的格式：YYYY-MM-DD、YYYY/MM/DD、YYYY.M.D、YYYY年M月D日 等。";
+const ERROR_MESSAGE = "Invalid date. Use YYYY-MM-DD, YYYY/MM/DD, or YYYY.M.D.";
 
 describe("parseFlexibleDate", () => {
   describe("YYYY-MM-DD (ISO)", () => {

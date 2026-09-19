@@ -131,13 +131,17 @@ describe("bot command integration", () => {
     });
     expect(kv.keys().some((key) => key.includes(String(userId)))).toBe(false);
     expect(
-      sentMessages.some((msg) => String(msg.text).includes("订阅已添加")),
+      sentMessages.some((msg) =>
+        String(msg.text).includes("Subscription added"),
+      ),
     ).toBe(true);
 
     await bot.handleUpdate(messageUpdate(2, userId, "/reminders"));
 
     expect(
-      sentMessages.some((msg) => JSON.stringify(msg).includes("近期提醒")),
+      sentMessages.some((msg) =>
+        JSON.stringify(msg).includes("Upcoming reminders"),
+      ),
     ).toBe(true);
     expect(
       sentMessages.some((msg) => JSON.stringify(msg).includes("Netflix")),
@@ -185,9 +189,13 @@ describe("bot command integration", () => {
     await bot.handleUpdate(messageUpdate(1, userId, "/add"));
     await bot.handleUpdate(messageUpdate(2, userId, "Netflix"));
 
-    expect(sentMessages.map((msg) => msg.text)).toContain("订阅名称是什么？");
+    expect(sentMessages.map((msg) => msg.text)).toContain(
+      "What is the subscription name?",
+    );
     expect(
-      sentMessages.some((msg) => String(msg.text).includes("价格是多少？")),
+      sentMessages.some((msg) =>
+        String(msg.text).includes("What is the price?"),
+      ),
     ).toBe(true);
   });
 });

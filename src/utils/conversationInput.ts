@@ -1,3 +1,4 @@
 export function isCancelInput(text: string): boolean {
-  return text.trim() === "/cancel" || text.trim() === "取消";
+  const input = text.trim().toLowerCase();
+  return input === "/cancel" || input === "cancel" || input === "取消";
 }

@@ -5,57 +5,57 @@ import { helpActionsKeyboard } from "../ui/navigation.js";
 import { sendRichOrPlain } from "../ui/richMessage.js";
 
 const HELP_TEXT =
-  "订阅管理助手\n\n" +
-  "记录订阅、跟进到期提醒、查看支出和调整设置。\n\n" +
-  "/menu — 恢复主菜单\n" +
-  "/cancel — 取消当前操作\n\n" +
-  "更多工具：\n" +
-  "/list_text — 查看纯文本订阅清单\n" +
-  "/report_text — 查看文字版支出明细\n" +
-  "/export — 导出 JSON 数据文件\n" +
-  "/delete_me — 永久删除全部数据\n\n" +
-  "快捷添加：\n" +
-  "/add <名称> <价格> <币种> <周期> <日期>\n" +
-  "示例：/add Netflix 12.99 CNY monthly 2026-06-01\n" +
-  "包含空格的名称、体验订阅或非自动续费，请使用交互式 /add。";
+  "Subscription Manager\n\n" +
+  "Track subscriptions, review reminders and spending, and manage your settings.\n\n" +
+  "/menu — Restore main menu\n" +
+  "/cancel — Cancel the current operation\n\n" +
+  "More tools: \n" +
+  "/list_text — View subscriptions as plain text\n" +
+  "/report_text — View spending details as text\n" +
+  "/export — Export JSON data file\n" +
+  "/delete_me — Permanently delete all data\n\n" +
+  "Quick add: \n" +
+  "/add <Name> <Price> <Currency> <Cycle> <Date>\n" +
+  "Example: /add Netflix 12.99 CNY monthly 2026-06-01\n" +
+  "Use interactive /add for names containing spaces, trials, or subscriptions without automatic renewal.";
 
 function helpRichMessage(): InputRichMessage {
   return {
     blocks: [
-      { type: "heading", size: 1, text: "订阅管理助手" },
+      { type: "heading", size: 1, text: "Subscription Manager" },
       {
         type: "paragraph",
-        text: "记录周期性订阅、提醒下次扣款，并汇总每月支出。",
+        text: "Track recurring subscriptions, get payment reminders, and review monthly spending.",
       },
       {
         type: "details",
-        summary: "更多命令",
+        summary: "More commands",
         blocks: [
           {
             type: "paragraph",
             text:
-              "/menu 恢复主菜单\n" +
-              "/cancel 取消当前操作\n" +
-              "/list_text 纯文本清单\n" +
-              "/report_text 文字报告",
+              "/menu Restore main menu\n" +
+              "/cancel Cancel the current operation\n" +
+              "/list_text Plain-text list\n" +
+              "/report_text Text report",
           },
         ],
       },
       {
         type: "details",
-        summary: "隐私与数据",
+        summary: "Privacy and data",
         blocks: [
           {
             type: "paragraph",
             text:
-              "/export 导出 JSON 数据文件\n" +
-              "/delete_me 永久删除全部数据（需要再次确认）",
+              "/export Export JSON data file\n" +
+              "/delete_me Permanently delete all data (confirmation required)",
           },
         ],
       },
       {
         type: "details",
-        summary: "一行快捷添加",
+        summary: "Quick add in one line",
         blocks: [
           {
             type: "pre",
@@ -64,7 +64,7 @@ function helpRichMessage(): InputRichMessage {
           },
           {
             type: "paragraph",
-            text: "名称包含空格、体验订阅或非自动续费时，请使用交互式 /add。",
+            text: "Use interactive /add for names containing spaces, trials, or subscriptions without automatic renewal.",
           },
         ],
       },

@@ -119,8 +119,10 @@ describe("delete confirmation callbacks", () => {
     expect(
       await createService(kv).get("user-key", "sub-1", VALID_KEY),
     ).toBeNull();
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已删除。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("“Netflix”已删除。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(" has been deleted.");
+    expect(ctx.editMessageText).toHaveBeenCalledWith(
+      "“Netflix” has been deleted.",
+    );
   });
 
   it("is idempotent when the subscription is already gone", async () => {
@@ -129,9 +131,9 @@ describe("delete confirmation callbacks", () => {
 
     await deleteConfirmCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已经删除。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("Already deleted.");
     expect(ctx.editMessageText).toHaveBeenCalledWith(
-      "没有找到这个订阅，或它已被删除。",
+      "Subscription not found, or it has been deleted.",
     );
   });
 
@@ -141,7 +143,9 @@ describe("delete confirmation callbacks", () => {
 
     await deleteConfirmCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("按钮数据无效。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      "Invalid button data.",
+    );
     expect(ctx.editMessageText).not.toHaveBeenCalled();
   });
 
@@ -153,8 +157,12 @@ describe("delete confirmation callbacks", () => {
 
     await deleteConfirmCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("无法识别用户。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("无法识别用户。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      "Unable to identify your account.",
+    );
+    expect(ctx.editMessageText).toHaveBeenCalledWith(
+      "Unable to identify your account.",
+    );
   });
 
   it("cancels deletion without touching data", async () => {
@@ -167,8 +175,8 @@ describe("delete confirmation callbacks", () => {
     expect(
       await createService(kv).get("user-key", "sub-1", VALID_KEY),
     ).not.toBeNull();
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已取消。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("已取消删除。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("Cancelled.");
+    expect(ctx.editMessageText).toHaveBeenCalledWith("Deletion cancelled.");
   });
 });
 
@@ -188,8 +196,10 @@ describe("privacy delete callbacks", () => {
     expect(await reminderRepo.listEntries("2026-06-01")).toHaveLength(0);
     expect(await userRepo.getUserProfile("user-key", VALID_KEY)).toBeNull();
     expect(ctx.conversation.exitAll).toHaveBeenCalled();
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已删除。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("你保存的数据已删除。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(" has been deleted.");
+    expect(ctx.editMessageText).toHaveBeenCalledWith(
+      "Your saved data has been deleted.",
+    );
   });
 
   it("continues deleting when exiting conversations fails", async () => {
@@ -207,7 +217,7 @@ describe("privacy delete callbacks", () => {
 
     expect(await createService(kv).list("user-key", VALID_KEY)).toHaveLength(0);
     expect(await userRepo.getUserProfile("user-key", VALID_KEY)).toBeNull();
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已删除。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(" has been deleted.");
   });
 
   it("answers invalid callback data", async () => {
@@ -216,7 +226,9 @@ describe("privacy delete callbacks", () => {
 
     await privacyDeleteConfirmCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("按钮数据无效。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      "Invalid button data.",
+    );
   });
 
   it("cancels privacy deletion", async () => {
@@ -225,8 +237,8 @@ describe("privacy delete callbacks", () => {
 
     await privacyDeleteCancelCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已取消。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("已取消删除。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("Cancelled.");
+    expect(ctx.editMessageText).toHaveBeenCalledWith("Deletion cancelled.");
   });
 });
 
@@ -237,13 +249,13 @@ describe("subscription callbacks", () => {
     );
 
     expect(text).toContain("Netflix");
-    expect(text).toContain("价格：12.99 USD");
-    expect(text).toContain("周期：每月");
-    expect(text).toContain("提醒：跟随默认设置");
-    expect(text).toContain("类型：体验");
-    expect(text).toContain("自动续费：否");
-    expect(text).toContain("分类：Video");
-    expect(text).toContain("备注：family plan");
+    expect(text).toContain("Price: 12.99 USD");
+    expect(text).toContain("Cycle: Monthly");
+    expect(text).toContain("Reminder: Use default settings");
+    expect(text).toContain("Type: Trial");
+    expect(text).toContain("Auto-renewal: No");
+    expect(text).toContain("Category: Video");
+    expect(text).toContain("Notes: family plan");
   });
 
   it("views an existing subscription", async () => {
@@ -261,7 +273,7 @@ describe("subscription callbacks", () => {
             type: "table",
             cells: expect.arrayContaining([
               [
-                expect.objectContaining({ text: "订阅" }),
+                expect.objectContaining({ text: "Subscription" }),
                 expect.objectContaining({ text: "Netflix" }),
               ],
             ]),
@@ -286,7 +298,7 @@ describe("subscription callbacks", () => {
       await callback(ctx);
       expect(ctx.answerCallbackQuery).toHaveBeenCalledTimes(1);
       expect(ctx.editMessageText).toHaveBeenCalledWith(
-        expect.stringContaining("没有找到这个订阅"),
+        expect.stringContaining("Subscription not found"),
         { reply_markup: { inline_keyboard: [] } },
       );
     }
@@ -306,7 +318,7 @@ describe("subscription callbacks", () => {
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
     expect(deleteCtx.editMessageText).toHaveBeenCalledWith(
-      expect.stringContaining("确认删除"),
+      expect.stringContaining("Delete "),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -321,7 +333,7 @@ describe("subscription callbacks", () => {
     const updated = await createService(kv).get("user-key", "sub-1", VALID_KEY);
     expect(updated?.status).toBe("paused");
     expect(ctx.editMessageText).toHaveBeenCalledWith(
-      expect.stringContaining("已暂停"),
+      expect.stringContaining("Paused "),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -344,10 +356,13 @@ describe("reminder renewal controls", () => {
     await seedSubscription(kv, createSub({ id: "sub-2", name: "Spotify" }));
     const data = "reminder:renew:sub-1:2026-06-01";
     const other = {
-      text: "已续费 · Spotify",
+      text: "Renewed · Spotify",
       callback_data: "reminder:renew:sub-2:2026-06-01",
     };
-    const navigation = { text: "管理订阅", callback_data: "nav:list" };
+    const navigation = {
+      text: "Manage subscriptions",
+      callback_data: "nav:list",
+    };
     const makeContext = () =>
       createCallbackContext(kv, data, {
         callbackQuery: {
@@ -355,7 +370,7 @@ describe("reminder renewal controls", () => {
           message: {
             reply_markup: {
               inline_keyboard: [
-                [{ text: "已续费 · Netflix", callback_data: data }],
+                [{ text: "Renewed · Netflix", callback_data: data }],
                 [other],
                 [navigation],
               ],
@@ -377,7 +392,7 @@ describe("reminder renewal controls", () => {
     const duplicate = makeContext();
     await reminderRenewCallback(duplicate);
     expect(duplicate.reply).toHaveBeenCalledWith(
-      expect.stringContaining("已经处理过"),
+      expect.stringContaining("already been processed"),
     );
     expect(duplicate.editMessageText).not.toHaveBeenCalled();
     expect(

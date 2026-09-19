@@ -21,7 +21,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     logger.warn("Report command without userKey");
     return;
   }
@@ -36,7 +36,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     ctx.env.ENCRYPTION_KEY,
   );
   if (subscriptions.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。", {
+    await ctx.reply("You have not added any subscriptions yet.", {
       reply_markup: emptySubscriptionsKeyboard(),
     });
     return;
@@ -77,7 +77,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     await ctx.replyWithPhoto(
       new InputFile(overviewPng, "subscription-spending-overview.png"),
       {
-        caption: "订阅支出总览",
+        caption: "Subscription spending overview",
         reply_markup: reportActionsKeyboard(),
       },
     );

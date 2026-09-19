@@ -1,8 +1,8 @@
 import { UserRepository } from "../../repositories/userRepository.js";
 
 export const SETTINGS_ONBOARDING_MESSAGE =
-  "提醒：你还没有配置个人设置。\n" +
-  "发送 /settings 设置提醒时间、时区和默认币种，让后续添加订阅更省事。";
+  "Reminder: You have not configured your preferences yet.\n" +
+  "Use /settings to set your reminder time, timezone, and default currency for future subscriptions.";
 
 export async function shouldShowSettingsOnboarding(
   userRepo: UserRepository,

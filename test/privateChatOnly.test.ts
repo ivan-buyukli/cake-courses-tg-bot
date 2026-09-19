@@ -41,7 +41,7 @@ describe("privateChatOnly", () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("私聊"),
+      expect.stringContaining("private chat"),
       expect.objectContaining({
         reply_markup: expect.objectContaining({
           inline_keyboard: [
@@ -68,7 +68,7 @@ describe("privateChatOnly", () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith({
-      text: "为了保护个人数据，请在私聊中使用。",
+      text: "Please use a private chat to protect your personal data.",
       show_alert: true,
     });
   });

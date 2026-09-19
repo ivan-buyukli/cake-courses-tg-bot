@@ -11,7 +11,7 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     logger.warn("Export command without userKey");
     return;
   }
@@ -45,7 +45,7 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
     new InputFile(new TextEncoder().encode(payload), filename),
     {
       caption:
-        "这是你的订阅数据副本。文件不包含 Telegram 用户 ID、存储键或加密密钥。",
+        "This is a copy of your subscription data. It does not include Telegram user IDs, storage keys, or encryption keys.",
     },
   );
 

@@ -28,18 +28,18 @@ import { exportCommand } from "../commands/export.js";
 
 export function settingsKeyboard(settings: UserSettings): InlineKeyboard {
   return new InlineKeyboard()
-    .text("报告币种", "settings:currency")
+    .text("Report currency", "settings:currency")
     .primary()
     .text(
-      settings.reminderEnabled ? "关闭提醒" : "开启提醒",
+      settings.reminderEnabled ? "Disable reminders" : "Enable reminders",
       "settings:toggle_reminder",
     )
     .row()
-    .text("提醒时间", "settings:hour")
-    .text("时区", "settings:timezone")
+    .text("Reminder time", "settings:hour")
+    .text("Timezone", "settings:timezone")
     .row()
-    .text("隐私与数据", "settings:privacy")
-    .text("完成", "settings:done")
+    .text("Privacy and data", "settings:privacy")
+    .text("Done", "settings:done")
     .success();
 }
 
@@ -47,15 +47,15 @@ export function settingsPresentation(
   settings: UserSettings,
 ): MessagePresentation {
   const fields = [
-    ["报告币种", settings.defaultCurrency],
-    ["提醒", settings.reminderEnabled ? "开启" : "关闭"],
-    ["提醒时间", `${String(settings.reminderHour).padStart(2, "0")}:00`],
-    ["时区", settings.timezone],
+    ["Report currency", settings.defaultCurrency],
+    ["Reminder", settings.reminderEnabled ? "On" : "Off"],
+    ["Reminder time", `${String(settings.reminderHour).padStart(2, "0")}:00`],
+    ["Timezone", settings.timezone],
   ];
   return {
     richMessage: {
       blocks: [
-        { type: "paragraph", text: "设置" },
+        { type: "paragraph", text: "Settings" },
         {
           type: "table",
           is_compact: true,
@@ -67,7 +67,7 @@ export function settingsPresentation(
         },
       ],
     },
-    plainText: `设置\n\n${fields.map(([key, value]) => `${key}：${value}`).join("\n")}`,
+    plainText: `Settings\n\n${fields.map(([key, value]) => `${key}: ${value}`).join("\n")}`,
     replyMarkup: settingsKeyboard(settings),
   };
 }
@@ -90,7 +90,7 @@ export function hourPickerKeyboard(currentHour?: number): InlineKeyboard {
     if ((h + 1) % 8 === 0) keyboard.row();
   }
 
-  keyboard.text("返回", "settings:back").text("取消", "settings:cancel");
+  keyboard.text("Back", "settings:back").text("Cancel", "settings:cancel");
   return keyboard;
 }
 
@@ -103,8 +103,11 @@ export function timezoneKeyboard(currentTimezone?: string): InlineKeyboard {
     if (index % 2 === 1) keyboard.row();
   });
 
-  keyboard.text("自定义时区偏移", "settings:tzoffset");
-  keyboard.row().text("返回", "settings:back").text("取消", "settings:cancel");
+  keyboard.text("Custom timezone offset", "settings:tzoffset");
+  keyboard
+    .row()
+    .text("Back", "settings:back")
+    .text("Cancel", "settings:cancel");
   return keyboard;
 }
 
@@ -117,10 +120,10 @@ export function timezoneOffsetKeyboard(): InlineKeyboard {
     .text("UTC+10", "settings:tzoffset:+10")
     .row()
     .text("UTC-3", "settings:tzoffset:-3")
-    .text("其他", "settings:tzoffset:other")
+    .text("Other", "settings:tzoffset:other")
     .row()
-    .text("返回", "settings:tzoffset:back")
-    .text("取消", "settings:cancel");
+    .text("Back", "settings:tzoffset:back")
+    .text("Cancel", "settings:cancel");
 }
 
 export async function settingsConversation(
@@ -134,14 +137,17 @@ export async function settingsConversation(
   }));
 
   if (!ctxData.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     return;
   }
 
   const userKey = ctxData.userKey;
   const encryptionKey = ctxData.encryptionKey;
   const logger = createLogger(ctxData.requestId);
-  await hideMainMenu(ctx, "正在调整设置。可随时发送 /cancel 或“取消”退出。");
+  await hideMainMenu(
+    ctx,
+    "Editing settings. Send /cancel or “Cancel” at any time to exit.",
+  );
 
   let settings = await conversation.external(async (outsideCtx) => {
     const repo = createUserRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -158,7 +164,7 @@ export async function settingsConversation(
     if (updateCtx.message?.text) {
       const text = updateCtx.message.text;
       if (isCancelInput(text)) {
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         await restoreMainMenu(ctx);
         return;
       }
@@ -173,12 +179,12 @@ export async function settingsConversation(
       await updateCtx.answerCallbackQuery();
       try {
         await updateCtx.editMessageText(
-          "🔐 隐私与数据\n\n你可以下载个人数据副本，或永久删除全部数据。",
+          "🔐 Privacy and data\n\nDownload a copy of your data, or permanently delete all your data.",
           { reply_markup: privacyActionsKeyboard() },
         );
       } catch {
         menuMessage = await ctx.reply(
-          "🔐 隐私与数据\n\n你可以下载个人数据副本，或永久删除全部数据。",
+          "🔐 Privacy and data\n\nDownload a copy of your data, or permanently delete all your data.",
           { reply_markup: privacyActionsKeyboard() },
         );
       }
@@ -186,7 +192,7 @@ export async function settingsConversation(
     }
 
     if (callbackData === "settings:export") {
-      await updateCtx.answerCallbackQuery("正在准备导出文件…");
+      await updateCtx.answerCallbackQuery("Preparing your export…");
       await conversation.external(async (outsideCtx) => {
         await exportCommand(outsideCtx);
       });
@@ -197,12 +203,12 @@ export async function settingsConversation(
       await updateCtx.answerCallbackQuery();
       try {
         await updateCtx.editMessageText(
-          "⚠️ 确认删除全部数据？\n\n这将永久删除所有订阅、提醒和个人设置，且无法恢复。",
+          "⚠️ Delete all data?\n\nThis permanently deletes all subscriptions, reminders, and personal settings. This cannot be undone.",
           { reply_markup: privacyDeleteKeyboard() },
         );
       } catch {
         await ctx.reply(
-          "⚠️ 确认删除全部数据？\n\n这将永久删除所有订阅、提醒和个人设置，且无法恢复。",
+          "⚠️ Delete all data?\n\nThis permanently deletes all subscriptions, reminders, and personal settings. This cannot be undone.",
           { reply_markup: privacyDeleteKeyboard() },
         );
       }
@@ -220,13 +226,13 @@ export async function settingsConversation(
           await ctx.api.editMessageText(
             menuMessage.chat.id,
             menuMessage.message_id,
-            "⚙️ 设置\n\n设置已更新。",
+            "⚙️ Settings\n\nSettings updated.",
           );
         } catch {
-          await ctx.reply("设置已更新。");
+          await ctx.reply("Settings updated.");
         }
         logger.info("Settings conversation completed");
-        await restoreMainMenu(ctx, "设置已保存，主菜单已恢复。");
+        await restoreMainMenu(ctx, "Settings saved. Main menu restored.");
         return;
       }
 
@@ -237,9 +243,9 @@ export async function settingsConversation(
 
       if (parsed.action === "cancel") {
         try {
-          await updateCtx.editMessageText("已取消设置操作。");
+          await updateCtx.editMessageText("Settings changes cancelled.");
         } catch {
-          await ctx.reply("已取消设置操作。");
+          await ctx.reply("Settings changes cancelled.");
         }
         await restoreMainMenu(ctx);
         return;
@@ -298,9 +304,12 @@ export async function settingsConversation(
             reply_markup: timezoneOffsetKeyboard(),
           });
         } catch {
-          await ctx.reply("请选择 UTC 偏移，或点“其他”输入。", {
-            reply_markup: timezoneOffsetKeyboard(),
-          });
+          await ctx.reply(
+            "Choose a UTC offset, or select “Other” to enter one.",
+            {
+              reply_markup: timezoneOffsetKeyboard(),
+            },
+          );
         }
         continue;
       }
@@ -308,7 +317,9 @@ export async function settingsConversation(
       if (parsed.action === "timezone_offset") {
         const normalized = normalizeUtcOffset(parsed.offset);
         if (!normalized) {
-          await ctx.reply("无效的偏移。请使用 +8、-5、+5:30 这样的格式。");
+          await ctx.reply(
+            "Invalid offset. Use a format such as +8, -5, or +5:30.",
+          );
           continue;
         }
 
@@ -325,10 +336,10 @@ export async function settingsConversation(
       if (parsed.action === "timezone_offset_other") {
         try {
           await updateCtx.editMessageText(
-            "请输入 UTC 偏移，例如 +8、-5、+5:30。",
+            "Enter a UTC offset, such as +8, -5, or +5:30.",
           );
         } catch {
-          await ctx.reply("请输入 UTC 偏移，例如 +8、-5、+5:30。");
+          await ctx.reply("Enter a UTC offset, such as +8, -5, or +5:30.");
         }
 
         let normalized: string | null = null;
@@ -336,15 +347,15 @@ export async function settingsConversation(
           const customTzCtx = await conversation.waitFor("message:text");
           const customTzText = customTzCtx.msg.text;
           if (isCancelInput(customTzText)) {
-            await ctx.reply("已取消。");
+            await ctx.reply("Cancelled.");
             await restoreMainMenu(ctx);
             return;
           }
           normalized = normalizeUtcOffset(customTzText);
           if (!normalized) {
             await ctx.reply(
-              "无效的偏移。请使用 +8、-5、+5:30 这样的格式并重新输入。",
-              { reply_markup: forceReply("例如 +8 或 +5:30") },
+              "Invalid offset. Try again using a format such as +8, -5, or +5:30.",
+              { reply_markup: forceReply("e.g. +8 or +5:30") },
             );
           }
         }
@@ -365,7 +376,7 @@ export async function settingsConversation(
             reply_markup: timezoneKeyboard(settings.timezone),
           });
         } catch {
-          await ctx.reply("⚙️ 设置", {
+          await ctx.reply("⚙️ Settings", {
             reply_markup: timezoneKeyboard(settings.timezone),
           });
         }
@@ -379,7 +390,7 @@ export async function settingsConversation(
     if (callbackData === "settings:currency") {
       await updateCtx.answerCallbackQuery();
       const selectedCurrency = await collectCurrencyInput(conversation, ctx, {
-        prompt: "请选择默认币种：",
+        prompt: "Choose the default currency: ",
         hasPrice: true,
       });
       if (selectedCurrency.cancelled || !selectedCurrency.currency) {

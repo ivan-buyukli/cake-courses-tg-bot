@@ -47,8 +47,11 @@ function createEnv(): Env {
 describe("conversation input helpers", () => {
   it("recognizes cancel text after trimming", () => {
     expect(isCancelInput(" /cancel ")).toBe(true);
-    expect(isCancelInput(" 取消 ")).toBe(true);
-    expect(isCancelInput("cancel")).toBe(false);
+    expect(isCancelInput(" Cancel ")).toBe(true);
+    expect(isCancelInput("cancel")).toBe(true);
+    expect(isCancelInput(" CANCEL ")).toBe(true);
+    expect(isCancelInput("取消")).toBe(true);
+    expect(isCancelInput("continue")).toBe(false);
   });
 });
 
@@ -138,7 +141,9 @@ describe("errorHandler", () => {
       throw new Error("secret details");
     });
 
-    expect(ctx.reply).toHaveBeenCalledWith("发生了意外错误，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "An unexpected error occurred. Please try again later.",
+    );
   });
 
   it("swallows reply failures while handling errors", async () => {

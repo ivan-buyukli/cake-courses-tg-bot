@@ -54,7 +54,7 @@ describe("telegramService.sendMessage", () => {
         inline_keyboard: [
           [
             {
-              text: "已续费一个周期",
+              text: "Renewed for one cycle",
               callback_data: "reminder:renew:sub-1:2026-06-01",
             },
           ],
@@ -64,7 +64,7 @@ describe("telegramService.sendMessage", () => {
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(callBody.reply_markup.inline_keyboard[0][0]).toEqual({
-      text: "已续费一个周期",
+      text: "Renewed for one cycle",
       callback_data: "reminder:renew:sub-1:2026-06-01",
     });
   });
@@ -125,10 +125,12 @@ describe("telegramService.sendMessage", () => {
 
 describe("telegramService rich message fallback", () => {
   const view = {
-    richMessage: { blocks: [{ type: "paragraph" as const, text: "订阅" }] },
-    plainText: "订阅",
+    richMessage: {
+      blocks: [{ type: "paragraph" as const, text: "Subscription" }],
+    },
+    plainText: "Subscription",
     replyMarkup: {
-      inline_keyboard: [[{ text: "管理", callback_data: "nav:list" }]],
+      inline_keyboard: [[{ text: "Manage", callback_data: "nav:list" }]],
     },
   };
   it("sends a plain fallback with controls for a rich-format rejection", async () => {
@@ -149,7 +151,7 @@ describe("telegramService rich message fallback", () => {
     });
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchObject({
-      text: "订阅",
+      text: "Subscription",
       reply_markup: view.replyMarkup,
     });
   });
@@ -159,16 +161,14 @@ describe("telegramService rich message fallback", () => {
       const { sendRichMessage } = await import(
         "../src/services/telegramService.js"
       );
-      const mockFetch = vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              description: "unrelated error with private data",
-            }),
-            { status },
-          ),
-        );
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            description: "unrelated error with private data",
+          }),
+          { status },
+        ),
+      );
       global.fetch = mockFetch;
       expect(await sendRichMessage(createMockEnv(), 123, view)).toEqual({
         ok: false,

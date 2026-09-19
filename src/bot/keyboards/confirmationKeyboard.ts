@@ -1,9 +1,9 @@
 import { InlineKeyboard } from "grammy";
 
 export function binaryActionKeyboard({
-  confirmLabel = "✅ 确认",
+  confirmLabel = "✅ Confirm",
   confirmData,
-  cancelLabel = "❌ 取消",
+  cancelLabel = "❌ Cancel",
   cancelData,
   confirmStyle = "success",
 }: {

@@ -3,7 +3,7 @@ import { mainMenuReplyKeyboard } from "../keyboards/mainMenuKeyboard.js";
 
 export async function hideMainMenu(
   ctx: BaseBotContext,
-  message = "已进入交互流程。可随时发送 /cancel 或“取消”退出。",
+  message = "An interactive operation has started. Send /cancel or “Cancel” at any time to exit.",
 ): Promise<void> {
   await ctx.reply(message, {
     reply_markup: { remove_keyboard: true },
@@ -19,7 +19,7 @@ export function forceReply(placeholder: string) {
 
 export async function restoreMainMenu(
   ctx: BaseBotContext,
-  message = "已恢复主菜单。",
+  message = "Main menu restored.",
 ): Promise<void> {
   await ctx.reply(message, {
     reply_markup: mainMenuReplyKeyboard(),

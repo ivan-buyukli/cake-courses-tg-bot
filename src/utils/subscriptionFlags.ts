@@ -9,23 +9,23 @@ export function isAutoRenewing(sub: Subscription): boolean {
 }
 
 export function formatSubscriptionType(sub: Subscription): string {
-  return isTrialSubscription(sub) ? "体验" : "付费";
+  return isTrialSubscription(sub) ? "Trial" : "Paid";
 }
 
 export function formatAutoRenew(sub: Subscription): string {
-  return isAutoRenewing(sub) ? "是" : "否";
+  return isAutoRenewing(sub) ? "Yes" : "No";
 }
 
 export function formatBillingDateLabel(sub: Subscription): string {
-  if (isTrialSubscription(sub)) return "体验到期/首次扣款";
-  if (!isAutoRenewing(sub)) return "服务到期";
-  return "下次扣款";
+  if (isTrialSubscription(sub)) return "Trial ends / first payment";
+  if (!isAutoRenewing(sub)) return "Service expires";
+  return "Next payment";
 }
 
 export function formatStatusPrefix(sub: Subscription): string {
   const labels: string[] = [];
-  if (sub.status === "paused") labels.push("已暂停");
-  if (isTrialSubscription(sub)) labels.push("体验");
-  if (!isAutoRenewing(sub)) labels.push("已停续费");
+  if (sub.status === "paused") labels.push("Paused");
+  if (isTrialSubscription(sub)) labels.push("Trial");
+  if (!isAutoRenewing(sub)) labels.push("Auto-renewal off");
   return labels.length > 0 ? `[${labels.join("][")}] ` : "";
 }

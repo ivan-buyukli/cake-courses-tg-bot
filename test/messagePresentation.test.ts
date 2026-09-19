@@ -9,7 +9,7 @@ import { reminderPresentation } from "../src/bot/ui/reminderPresentation.js";
 function sub(index: number, extra: Partial<Subscription> = {}): Subscription {
   return {
     id: `sub-${index}`,
-    name: `订阅 ${index}`,
+    name: `Subscription ${index}`,
     price: 0,
     currency: "EUR",
     billingCycle: "monthly",
@@ -33,7 +33,7 @@ describe("dense subscription presentations", () => {
         {
           type: "button",
           button: {
-            text: "订阅 0",
+            text: "Subscription 0",
             style: "link",
             callback_data: "list:select:sub-0:0",
           },
@@ -50,14 +50,14 @@ describe("dense subscription presentations", () => {
       });
       if (count > 12) {
         const second = listPresentation(subs, 1);
-        expect(second.plainText).toContain("13. 订阅 12");
-        expect(second.plainText).not.toContain("12. 订阅 11");
+        expect(second.plainText).toContain("13. Subscription 12");
+        expect(second.plainText).not.toContain("12. Subscription 11");
       }
     },
   );
   it("clamps a deleted final page and handles empty data", () => {
-    expect(listPresentation([sub(1)], 3).plainText).toContain("第 1/1 页");
-    expect(listPresentation([], 0).plainText).toContain("0 项");
+    expect(listPresentation([sub(1)], 3).plainText).toContain("Page 1/1");
+    expect(listPresentation([], 0).plainText).toContain("0 items");
   });
   it("keeps long names and markup literal, unknown prices distinct from zero, and paused dates explicit", () => {
     const name =
@@ -71,8 +71,8 @@ describe("dense subscription presentations", () => {
     );
     expect(view.plainText).toContain(name);
     expect(view.plainText).toContain("0 EUR");
-    expect(view.plainText).toContain("— · 已暂停");
-    expect(view.plainText).toContain("体验 · 已停续费");
+    expect(view.plainText).toContain("— · Paused");
+    expect(view.plainText).toContain("Trial · Auto-renewal off");
     expect(view.richMessage.html).toBeUndefined();
     expect(view.richMessage.markdown).toBeUndefined();
   });
@@ -81,7 +81,7 @@ describe("dense subscription presentations", () => {
     expect(
       view.richMessage.blocks?.find((b) => b.type === "details"),
     ).toMatchObject({
-      summary: "备注",
+      summary: "Notes",
       blocks: [{ type: "paragraph", text: "private notes" }],
     });
     expect(
@@ -127,11 +127,11 @@ describe("dense subscription presentations", () => {
     expect(view.plainText.indexOf("A")).toBeLessThan(
       view.plainText.indexOf("B"),
     );
-    expect(view.plainText).toContain("体验到期");
-    expect(view.plainText).toContain("服务到期");
-    expect(view.plainText).not.toContain("发送 /list");
+    expect(view.plainText).toContain("Trial ends");
+    expect(view.plainText).toContain("Service expires");
+    expect(view.plainText).not.toContain("Send /list");
     expect(view.replyMarkup?.inline_keyboard.flat().map((b) => b.text)).toEqual(
-      ["已续费 · A", "已续费 · B", "管理订阅"],
+      ["Renewed · A", "Renewed · B", "Manage subscriptions"],
     );
   });
 });

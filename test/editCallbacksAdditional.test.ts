@@ -28,7 +28,9 @@ describe("edit callbacks", () => {
 
     await editFieldCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("无法识别用户。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      "Unable to identify your account.",
+    );
     expect(ctx.conversation.enter).not.toHaveBeenCalled();
   });
 
@@ -37,7 +39,9 @@ describe("edit callbacks", () => {
 
     await editFieldCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("按钮数据无效。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      "Invalid button data.",
+    );
     expect(ctx.conversation.enter).not.toHaveBeenCalled();
   });
 
@@ -82,7 +86,7 @@ describe("edit callbacks", () => {
     await editFieldCallback(ctx);
 
     expect(ctx.answerCallbackQuery).toHaveBeenLastCalledWith(
-      "操作失败，请稍后再试。",
+      "Operation failed. Please try again later.",
     );
   });
 
@@ -91,8 +95,8 @@ describe("edit callbacks", () => {
 
     await editCancelCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已取消。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("已取消编辑。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("Cancelled.");
+    expect(ctx.editMessageText).toHaveBeenCalledWith("Editing cancelled.");
   });
 
   it("handles cancel without userKey", async () => {
@@ -100,7 +104,11 @@ describe("edit callbacks", () => {
 
     await editCancelCallback(ctx);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("无法识别用户。");
-    expect(ctx.editMessageText).toHaveBeenCalledWith("无法识别用户。");
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      "Unable to identify your account.",
+    );
+    expect(ctx.editMessageText).toHaveBeenCalledWith(
+      "Unable to identify your account.",
+    );
   });
 });

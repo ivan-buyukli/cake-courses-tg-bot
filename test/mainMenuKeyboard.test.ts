@@ -18,6 +18,6 @@ describe("main menu keyboard", () => {
     expect(actionFromMainMenuText(MAIN_MENU_BUTTON_LABELS.report)).toBe(
       "report",
     );
-    expect(actionFromMainMenuText("随便输入")).toBeNull();
+    expect(actionFromMainMenuText("Random input")).toBeNull();
   });
 });

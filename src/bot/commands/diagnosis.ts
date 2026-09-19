@@ -357,12 +357,12 @@ function formatDiagnosisReport(checks: DiagnosisCheck[]): string {
 
   const header =
     errorCount === 0
-      ? "环境变量自检：通过"
-      : `环境变量自检：发现 ${errorCount} 个错误`;
+      ? "Environment check: passed"
+      : `Environment check: found ${errorCount} errors`;
 
   return [
     header,
-    warnCount > 0 ? `警告：${warnCount} 个` : "警告：0 个",
+    warnCount > 0 ? `Warnings: ${warnCount}` : "Warnings: 0",
     "",
     ...checks.map(
       (check) =>

@@ -45,10 +45,10 @@ Shows a welcome message with the persistent reply keyboard. First-time users are
 
 **Interactive mode** (no arguments):
 1. Asks for subscription name (non-empty).
-2. Asks for price. Enter a number or tap **跳过价格** to leave unset. The old `skip` text is still accepted for compatibility.
-3. Select currency via inline keyboard (includes common currencies + **其他** for custom input, with a back button from custom input).
+2. Asks for price. Enter a number or tap **Skip price** to leave unset. The old `skip` text is still accepted for compatibility.
+3. Select currency via inline keyboard (includes common currencies + **Other** for custom input, with a back button from custom input).
 4. Select billing cycle via inline keyboard: Weekly, Monthly, Quarterly, Yearly, Custom, or Advanced interval.
-   Advanced interval first offers common presets such as 30 days, 4 weeks, 6 months, and 1 year. **其他** accepts day/week/month/year intervals such as `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
+   Advanced interval first offers common presets such as 30 days, 4 weeks, 6 months, and 1 year. **Other** accepts day/week/month/year intervals such as `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, or `every 2 years`.
 5. Select next billing date via inline calendar keyboard with month and year navigation.
 6. Confirm the generated future billing-date preview, or go back to change the cycle/date.
 7. Mark whether the subscription is a trial.
@@ -57,7 +57,7 @@ Shows a welcome message with the persistent reply keyboard. First-time users are
 
 The persistent menu is hidden while typed input is expected and restored on
 completion or cancellation. Invalid name, price, currency, date, interval, and
-timezone input stays on the same step. `/cancel`, `取消`, and the visible cancel
+timezone input stays on the same step. `/cancel`, `Cancel`, and the visible cancel
 buttons exit without saving partial data.
 
 **One-line mode**:
@@ -78,7 +78,7 @@ One-line `/add` always creates an active, paid, auto-renewing subscription. It d
 Displays a compact bordered three-column table (subscription, amount, next date), with
 12 subscriptions per page. Full names are link-style callback buttons; the
 keyboard below contains only pagination. Trial, non-renewing and paused states
-appear beside names; paused dates show “已暂停”, unknown amounts “—”, and zero
+appear beside names; paused dates show “Paused”, unknown amounts “—”, and zero
 amounts remain visible. The plain-text fallback uses numbered selection buttons.
 Selecting a name opens a compact bordered two-column field table with collapsible notes and no separate title. All
 edit, delete, pause/resume, trial, auto-renewal and back actions remain visible.
@@ -107,7 +107,7 @@ project-level reminder policy. Reminder policy can inherit the default repeated
 window or send only once, one day before billing.
 
 **Interactive mode**:
-Click **编辑** from a `/list` detail view. Text/date/cycle edits receive a
+Click **Edit** from a `/list` detail view. Text/date/cycle edits receive a
 serializable source-panel reference. After saving, the bot edits that original
 detail panel and restores the persistent main menu instead of sending a second
 copy of the detail.
@@ -132,9 +132,9 @@ The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encryp
 ### `/report`
 
 Generates a PNG overview report from the current subscription list:
-- 未来 30 天扣款：actual payment amounts due from today through the next 30 days.
-- 月均订阅成本：active auto-renewing subscriptions converted to a monthly run rate.
-- 未来 12 个月预期：projected actual charges over the next 12 months.
+- Next 30 days: actual payment amounts due from today through the next 30 days.
+- Monthly subscription cost: active auto-renewing subscriptions converted to a monthly run rate.
+- Next 12 months: projected actual charges over the next 12 months.
 - Upcoming line items, 30-day due-date distribution, and yearly month trend.
 
 Subscriptions without price or currency, and subscriptions with `custom` billing cycle, are excluded from the calculated total but counted in the report. Trial subscriptions and subscriptions with auto-renewal disabled are also excluded from spending totals and surfaced as excluded counts.
@@ -167,18 +167,18 @@ rejections fall back to equivalent plain text with the same action keyboard:
 ### `/reminders`
 
 Lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
-Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. Both command results and scheduled notifications label each item as 扣款, 体验到期 or 服务到期.
+Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. Both command results and scheduled notifications label each item as Payment, Trial ends or Service expires.
 
 Scheduled delivery starts `REMINDER_DAYS_AHEAD` days before the billing date and repeats once per user-local day through the billing date. With the default value of `3`, eligible dates are D-3, D-2, D-1, and D. Failed Telegram sends are not marked as delivered and remain retryable during the same local dispatch window.
 
-A subscription can override this behavior from `/list` → **编辑** →
-**提醒方式**. The one-day override sends only at D-1 and does not send again on
+A subscription can override this behavior from `/list` → **Edit** →
+**Reminder preference**. The one-day override sends only at D-1 and does not send again on
 the billing date. Subscriptions without an override continue to inherit the
 default reminder window.
 
 Reminder messages use a single-item summary or compact bordered three-column table,
 sorted by date and name and split into at most 12 items per message. Below the
-content, **已续费 · 名称** buttons remain one per row for calculable cycles, plus
+content, **Renewed · Name** buttons remain one per row for calculable cycles, plus
 one management entry. Successful or stale renewal removes only that button and
 sends a short result, preserving the original summary and all other actions.
 Partial delivery records and advances only successful chunks on transient
@@ -204,7 +204,7 @@ Requires confirmation via inline keyboard before permanently deleting all user d
 
 ### Cancelling Conversations
 
-During active conversations, sending `/cancel` or `取消` aborts the current flow without saving partial input.
+During active conversations, sending `/cancel` or `Cancel` aborts the current flow without saving partial input.
 
 ## Admin
 

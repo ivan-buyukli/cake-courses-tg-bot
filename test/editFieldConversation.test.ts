@@ -12,8 +12,10 @@ describe("editFieldConversation validators", () => {
       expect(validateEditName("Netflix")).toBeNull();
     });
     it("rejects empty names", () => {
-      expect(validateEditName("")).toBe("订阅名称不能为空。");
-      expect(validateEditName("   ")).toBe("订阅名称不能为空。");
+      expect(validateEditName("")).toBe("Subscription name cannot be empty.");
+      expect(validateEditName("   ")).toBe(
+        "Subscription name cannot be empty.",
+      );
     });
   });
 
@@ -30,11 +32,11 @@ describe("editFieldConversation validators", () => {
     });
     it("rejects negative numbers", () => {
       const result = validateEditPrice("-1");
-      expect(result.error).toBe("请输入非负数字。");
+      expect(result.error).toBe("Enter a non-negative number.");
     });
     it("rejects non-numeric input", () => {
       const result = validateEditPrice("abc");
-      expect(result.error).toBe("请输入非负数字。");
+      expect(result.error).toBe("Enter a non-negative number.");
     });
   });
 
@@ -46,7 +48,9 @@ describe("editFieldConversation validators", () => {
     });
     it("rejects invalid codes", () => {
       const result = validateCurrencyCode("EURO");
-      expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
+      expect(result.error).toBe(
+        "Enter a 3-letter currency code, such as CNY or USD.",
+      );
     });
     it("converts to uppercase", () => {
       const result = validateCurrencyCode("eur");

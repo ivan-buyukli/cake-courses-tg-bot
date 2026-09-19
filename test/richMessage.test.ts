@@ -26,10 +26,10 @@ function createContext() {
 }
 const view = {
   richMessage: {
-    blocks: [{ type: "heading" as const, size: 1 as const, text: "帮助" }],
+    blocks: [{ type: "heading" as const, size: 1 as const, text: "Help" }],
   },
-  plainText: "普通帮助内容",
-  replyMarkup: new InlineKeyboard().text("返回", "nav:menu"),
+  plainText: "Plain help text",
+  replyMarkup: new InlineKeyboard().text("Back", "nav:menu"),
   plainReplyMarkup: new InlineKeyboard().text("1", "list:select:sub-1:0"),
 };
 
@@ -90,7 +90,7 @@ describe("message presentation transport", () => {
     vi.mocked(ctx.editMessageText).mockRejectedValueOnce(
       error(400, "message to edit not found"),
     );
-    await expect(editPlainMessage(ctx, "提示")).rejects.toBeInstanceOf(
+    await expect(editPlainMessage(ctx, "Notice")).rejects.toBeInstanceOf(
       GrammyError,
     );
   });
@@ -98,7 +98,7 @@ describe("message presentation transport", () => {
 
 describe("long plain report fallback", () => {
   it("preserves long text and emoji without splitting surrogate pairs", async () => {
-    const text = "x".repeat(3899) + "😀" + "详情\n".repeat(1500);
+    const text = "x".repeat(3899) + "😀" + "Details\n".repeat(1500);
     const chunks = splitPlainMessage(text);
     expect(chunks.join("")).toBe(text);
     expect(chunks.every((chunk) => chunk.length <= 3900)).toBe(true);

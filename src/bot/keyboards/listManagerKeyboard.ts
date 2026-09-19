@@ -28,10 +28,10 @@ export function buildListPageKeyboard(
   const tp = getTotalPages(subs);
   if (tp > 1) {
     if (page > 0) {
-      kb.text("⬅️ 上一页", `list:page:${page - 1}`);
+      kb.text("⬅️ Previous", `list:page:${page - 1}`);
     }
     if (page < tp - 1) {
-      kb.text("➡️ 下一页", `list:page:${page + 1}`);
+      kb.text("➡️ Next", `list:page:${page + 1}`);
     }
   }
 
@@ -44,20 +44,24 @@ export function buildDetailKeyboard(
 ): InlineKeyboard {
   const statusButton =
     sub.status === "paused"
-      ? InlineKeyboard.text("▶️ 恢复", `list:resume:${sub.id}:${page}`)
-      : InlineKeyboard.text("⏸ 暂停", `list:pause:${sub.id}:${page}`);
-  const trialLabel = isTrialSubscription(sub) ? "取消体验" : "标记体验";
-  const autoRenewLabel = isAutoRenewing(sub) ? "关闭自动续费" : "开启自动续费";
+      ? InlineKeyboard.text("▶️ Resume", `list:resume:${sub.id}:${page}`)
+      : InlineKeyboard.text("⏸ Pause", `list:pause:${sub.id}:${page}`);
+  const trialLabel = isTrialSubscription(sub)
+    ? "Remove trial status"
+    : "Mark as trial";
+  const autoRenewLabel = isAutoRenewing(sub)
+    ? "Disable auto-renewal"
+    : "Enable auto-renewal";
 
   return new InlineKeyboard()
-    .text("✏️ 编辑", `list:edit:${sub.id}:${page}`)
-    .text("🗑 删除", `list:del:${sub.id}:${page}`)
+    .text("✏️ Edit", `list:edit:${sub.id}:${page}`)
+    .text("🗑 Delete", `list:del:${sub.id}:${page}`)
     .row()
     .add(statusButton)
     .text(trialLabel, `list:ef:trial:${sub.id}:${page}`)
     .row()
     .text(autoRenewLabel, `list:ef:autorenew:${sub.id}:${page}`)
-    .text("← 返回列表", `list:back:${page}`);
+    .text("← Back to list", `list:back:${page}`);
 }
 
 export function buildEditFieldKeyboard(
@@ -67,7 +71,7 @@ export function buildEditFieldKeyboard(
   return editableFieldsKeyboard({
     callbackData: (field) => `list:ef:${field}:${subId}:${page}`,
     backButton: {
-      label: "← 返回详情",
+      label: "← Back to details",
       callbackData: `list:detail:${subId}:${page}`,
     },
   });
@@ -78,7 +82,7 @@ export function buildDeleteConfirmKeyboard(
   page: number,
 ): InlineKeyboard {
   return new InlineKeyboard()
-    .text("🗑 确认删除", `list:delok:${subId}:${page}`)
+    .text("🗑 Confirm deletion", `list:delok:${subId}:${page}`)
     .danger()
-    .text("❌ 取消", `list:delno:${subId}:${page}`);
+    .text("❌ Cancel", `list:delno:${subId}:${page}`);
 }

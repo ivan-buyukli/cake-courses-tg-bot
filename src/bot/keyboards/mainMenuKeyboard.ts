@@ -12,12 +12,12 @@ export const MAIN_MENU_ACTIONS = [
 export type MainMenuAction = (typeof MAIN_MENU_ACTIONS)[number];
 
 export const MAIN_MENU_BUTTON_LABELS: Record<MainMenuAction, string> = {
-  add: "➕ 添加订阅",
-  list: "📋 管理订阅",
-  report: "📊 支出报告",
-  reminders: "⏰ 近期扣款",
-  settings: "⚙️ 设置",
-  help: "❓ 帮助",
+  add: "➕ Add subscription",
+  list: "📋 Manage subscriptions",
+  report: "📊 Spending report",
+  reminders: "⏰ Upcoming payments",
+  settings: "⚙️ Settings",
+  help: "❓ Help",
 };
 
 export function actionFromMainMenuText(

@@ -26,7 +26,7 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     logger.warn("Reminders command without userKey");
     return;
   }
@@ -56,7 +56,7 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
     .sort((a, b) => a.nextBillingDate.localeCompare(b.nextBillingDate));
 
   if (upcoming.length === 0) {
-    await ctx.reply("近期没有即将扣款的订阅。", {
+    await ctx.reply("No upcoming subscription payments.", {
       reply_markup: emptyRemindersKeyboard(),
     });
     logger.info("Reminders command: no upcoming renewals");
@@ -69,8 +69,8 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
       ctx,
       reminderPresentation(
         sorted.slice(start, start + REMINDER_MESSAGE_SIZE),
-        "近期提醒",
-        `${today} 至 ${maxDate} · ${start + 1}–${Math.min(start + REMINDER_MESSAGE_SIZE, sorted.length)}/${sorted.length}`,
+        "Upcoming reminders",
+        `${today} to ${maxDate} · ${start + 1}–${Math.min(start + REMINDER_MESSAGE_SIZE, sorted.length)}/${sorted.length}`,
       ),
     );
   }

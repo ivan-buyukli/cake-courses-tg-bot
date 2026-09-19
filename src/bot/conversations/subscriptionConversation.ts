@@ -47,7 +47,7 @@ export async function beginSubscriptionConversation(
   }));
 
   if (!ctxData.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     return undefined;
   }
 
@@ -60,7 +60,7 @@ export async function beginSubscriptionConversation(
   const sub = await loadConversationSubscription(conversation, session, subId);
 
   if (!sub) {
-    await ctx.reply("没有找到这个订阅，或它已被删除。");
+    await ctx.reply("Subscription not found, or it has been deleted.");
     await restoreMainMenu(ctx);
     return undefined;
   }

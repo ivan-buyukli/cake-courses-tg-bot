@@ -88,7 +88,7 @@ async function markExpiredPanel(
   await ctx.answerCallbackQuery(toast);
   try {
     await ctx.editMessageText(
-      "⏳ 这个操作面板已过期。\n\n请重新开始，以确保显示的是最新数据。",
+      "⏳ This panel has expired.\n\nPlease start again to load the latest data.",
       { reply_markup: expiredPanelKeyboard(restart) },
     );
   } catch {
@@ -275,37 +275,49 @@ export function createBot(
   // or timeout). They answer the callback so Telegram stops the
   // loading spinner and inform the user the action expired.
   bot.callbackQuery(/^cycle:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次选择已过期，请重新开始。");
+    await markExpiredPanel(
+      ctx,
+      "add",
+      "This selection has expired. Please start again.",
+    );
   });
   bot.callbackQuery(/^editcycle:/, async (ctx) => {
-    await markExpiredPanel(ctx, "list", "这次选择已过期，请重新编辑。");
+    await markExpiredPanel(
+      ctx,
+      "list",
+      "This selection has expired. Please reopen the editor.",
+    );
   });
   bot.callbackQuery(/^editreminder:/, async (ctx) => {
-    await markExpiredPanel(ctx, "list", "这次提醒设置已过期，请重新编辑。");
+    await markExpiredPanel(
+      ctx,
+      "list",
+      "These reminder settings have expired. Please reopen the editor.",
+    );
   });
   bot.callbackQuery(/^addcurrency:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次币种选择已过期。");
+    await markExpiredPanel(ctx, "add", "This currency selection has expired.");
   });
   bot.callbackQuery(/^addprice:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次价格选择已过期。");
+    await markExpiredPanel(ctx, "add", "This price selection has expired.");
   });
   bot.callbackQuery(/^adddate:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次日期选择已过期。");
+    await markExpiredPanel(ctx, "add", "This date selection has expired.");
   });
   bot.callbackQuery(/^cycleint:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次间隔选择已过期。");
+    await markExpiredPanel(ctx, "add", "This interval selection has expired.");
   });
   bot.callbackQuery(/^add:confirm$/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次确认已过期。");
+    await markExpiredPanel(ctx, "add", "This confirmation has expired.");
   });
   bot.callbackQuery(/^add:cancel$/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次确认已过期。");
+    await markExpiredPanel(ctx, "add", "This confirmation has expired.");
   });
   bot.callbackQuery(/^add:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "这次确认已过期。");
+    await markExpiredPanel(ctx, "add", "This confirmation has expired.");
   });
   bot.callbackQuery(/^settings:/, async (ctx) => {
-    await markExpiredPanel(ctx, "settings", "这次设置选择已过期。");
+    await markExpiredPanel(ctx, "settings", "These settings have expired.");
   });
 
   return bot;

@@ -6,14 +6,17 @@ export async function deleteMeCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     logger.warn("Delete me command without userKey");
     return;
   }
 
-  await ctx.reply("这会永久删除你保存的全部订阅数据。确定继续吗？", {
-    reply_markup: privacyDeleteKeyboard(),
-  });
+  await ctx.reply(
+    "This will permanently delete all your saved subscription data. Continue?",
+    {
+      reply_markup: privacyDeleteKeyboard(),
+    },
+  );
 
   logger.info("Delete me confirmation requested");
 }

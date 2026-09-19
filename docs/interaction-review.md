@@ -6,12 +6,12 @@ This document reviews the Telegram interactive flows, session behavior, callback
 
 `/start` sends a short welcome message with a persistent reply keyboard. The menu actions route to existing flows instead of duplicating business logic:
 
-- **添加订阅** starts the `/add` conversation.
-- **管理订阅** opens the `/list` inline list manager. `/list_full` is a compatibility alias.
-- **支出报告** runs `/report`.
-- **近期扣款** runs `/reminders`.
-- **设置** starts `/settings`.
-- **帮助** shows `/help`.
+- **Add subscription** starts the `/add` conversation.
+- **Manage subscriptions** opens the `/list` inline list manager. `/list_full` is a compatibility alias.
+- **Spending report** runs `/report`.
+- **Upcoming payments** runs `/reminders`.
+- **Settings** starts `/settings`.
+- **Help** shows `/help`.
 
 The persistent reply keyboard is the closest Telegram-supported behavior to showing choices when a user returns to the chat. Bots cannot detect that a user has opened or returned to the chat screen, so the bot cannot proactively pop up a fresh menu without an incoming update.
 
@@ -20,10 +20,10 @@ The persistent reply keyboard is the closest Telegram-supported behavior to show
 The `/add` command starts a multi-step conversation when called without arguments:
 
 1. **Name** — asks for subscription name. Empty input is rejected.
-2. **Price** — asks for price. User can enter a number or tap **跳过价格**. Legacy `skip` text is still accepted.
-3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, return to the picker, or cancel. **不填写** is available if no price was set. Currency is required if price was set.
-4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval shows presets (30 days, 4 weeks, 6 months, 1 year) before custom text input. **其他** accepts `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
-5. **Next billing date** — inline calendar keyboard. User can navigate by month or year, pick a day, or select **今天**.
+2. **Price** — asks for price. User can enter a number or tap **Skip price**. Legacy `skip` text is still accepted.
+3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **Other** to type a custom 3-letter code, return to the picker, or cancel. **Leave unset** is available if no price was set. Currency is required if price was set.
+4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval shows presets (30 days, 4 weeks, 6 months, 1 year) before custom text input. **Other** accepts `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, or `every 2 years`.
+5. **Next billing date** — inline calendar keyboard. User can navigate by month or year, pick a day, or select **Today**.
 6. **Billing date preview** — shows the next five expected billing dates. User can confirm, go back to change cycle/date, or cancel.
 7. **Trial flag** — asks whether this is a trial subscription.
 8. **Auto-renewal flag** — asks whether this subscription auto-renews.
@@ -45,7 +45,7 @@ One-line usage creates active, paid, auto-renewing subscriptions.
 Editing is available from the inline list manager:
 
 ### Inline edit menu (callback-based)
-1. User clicks a subscription from `/list`, then clicks **编辑**.
+1. User clicks a subscription from `/list`, then clicks **Edit**.
 2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Reminder policy, Back.
 3. Clicking a text field starts `editField` conversation.
 4. Clicking **Cycle** starts `editCycle` conversation with an inline keyboard.
@@ -64,9 +64,9 @@ Trial and auto-renewal are direct actions on the `/list` detail view instead of 
 ### editCycle conversation
 - Shows inline keyboard with cycle options.
 - Saves immediately after selection for fixed cycles.
-- For Advanced interval, shows common presets first; custom interval text remains available behind **其他**.
+- For Advanced interval, shows common presets first; custom interval text remains available behind **Other**.
 - The cycle selector and advanced interval selector both provide back/cancel
-  controls, and `/cancel` or `取消` aborts without saving.
+  controls, and `/cancel` or `Cancel` aborts without saving.
 
 ## `/list` and `/list_full` Behavior
 
@@ -82,14 +82,14 @@ handler for compatibility, while `/list_text` preserves the text-only view:
 - Pause happens immediately.
 - Resume starts a short confirmation/date conversation.
 
-Expired panels are edited into a visible expired state with **重新开始** and
-**返回菜单** actions. Callback handlers always re-load from KV before mutating.
+Expired panels are edited into a visible expired state with **Start again** and
+**Back to menu** actions. Callback handlers always re-load from KV before mutating.
 
 Scheduled reminder messages include quick renewal buttons for subscriptions whose next cycle can be calculated. Clicking the button advances the subscription by one billing cycle and moves the reminder index, so the same due date will not keep reminding on later days. The callback includes the reminder's original billing date, so stale clicks after the date was already advanced do not advance another cycle.
 
 ## Conversation Cancel Input
 
-- Active conversations recognize `/cancel` and `取消` as cancellation input.
+- Active conversations recognize `/cancel` and `Cancel` as cancellation input.
 - During `/add`, cancelling before the final Confirm step guarantees **no partial data is written to KV**.
 - Outside an active conversation, `/cancel` explains that no operation is in
   progress and restores the persistent main menu.
@@ -100,11 +100,11 @@ The `/list` detail view can pause or resume a subscription. Pause marks the subs
 
 Resume starts `resumeConversation`:
 - If the subscription is already active, the bot says so and exits.
-- The bot shows the current relevant date using the subscription's date label (`下次扣款`, `体验到期/首次扣款`, or `服务到期`).
-- User can tap `按当前日期恢复` to keep that date.
+- The bot shows the current relevant date using the subscription's date label (`Next payment`, `Trial ends / first payment`, or `Service expires`).
+- User can tap `Resume with current date` to keep that date.
 - User can open the shared date picker to select a different date.
 - User can enter a new `YYYY-MM-DD` date before resuming.
-- `/cancel` or `取消` aborts without saving.
+- `/cancel` or `Cancel` aborts without saving.
 - Resume preserves `isTrial` and `autoRenew`. If the subscription remains trial or non-auto-renewing, the prompt and success message explicitly mention the retained status.
 
 ## /reminders Behavior
@@ -115,7 +115,7 @@ The `/reminders` command lists subscriptions with upcoming renewals within the c
 - Skips paused subscriptions.
 - Sorts by billing date ascending.
 - Shows name, price (if set), and billing date for each upcoming subscription.
-- If no subscriptions are due within the window, replies "近期没有即将扣款的订阅。"
+- If no subscriptions are due within the window, replies "No upcoming subscription payments."
 Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. `/reminders` shares expiration-specific labels with scheduled notifications.
 
 Scheduled delivery starts at the beginning of the configured window and repeats once per user-local day through the billing date. The default three-day setting therefore sends on D-3, D-2, D-1, and D. Cron scans enqueue one bounded message per user group, and the Queue consumer reloads current KV state before sending. Successful sends are deduplicated per subscription, billing date, and local reminder date. Network errors, Telegram 429 responses, and 5xx responses retry with exponential backoff without advancing the billing date; messages that exhaust the configured attempts move to the dead-letter queue.
@@ -129,7 +129,7 @@ subscriptions have no override and therefore require no migration.
 Single reminders use a summary; multiple reminders use a compact three-column
 table sorted by date and name. Notifications and command results are split at
 12 items. Renewal buttons stay below the content, one per item, with one shared
-management entry. No row repeats “发送 /list 管理”. After a renewal or stale click,
+management entry. No row repeats “Send /list to manage subscriptions”. After a renewal or stale click,
 only that renewal button is removed; a short result is sent without replacing
 the original summary or removing unrelated buttons. Each successful delivery
 chunk records its own sent markers. Transiently failed chunks do not advance
@@ -140,7 +140,7 @@ in the Queue path and retry independently of already delivered items.
 `/settings` shows current values in a compact bordered two-column table with action-only
 buttons and saves each change immediately. It
 covers report currency, reminder enablement, reminder hour, timezone, and
-**隐私与数据**. The privacy panel can export a JSON file or enter the existing
+**Privacy and data**. The privacy panel can export a JSON file or enter the existing
 double-confirmation permanent deletion flow.
 
 ## Private-chat boundary
@@ -230,7 +230,7 @@ All callback handlers are wrapped in `try/catch`. If an unexpected error occurs:
 
 ### Delete confirmation — idempotent
 1. User clicks **Delete** → confirmation keyboard appears.
-2. User clicks **Confirm** → subscription is deleted, message edited to "Deleted."
+2. User clicks **Confirm** → subscription is deleted, message edited to " has been deleted."
 3. User clicks **Confirm** again → bot checks KV, finds nothing, answers "Already deleted." and edits message to "Subscription not found or already deleted."
 4. No crash, no double-deletion.
 
@@ -288,15 +288,15 @@ What **is** logged:
 
 ## Validation Messages
 
-All validation errors are user-facing and specific (messages are in Chinese as shown to users):
+All validation errors are user-facing and specific (messages are in English as shown to users):
 
 | Field | Invalid input | Message |
 |-------|--------------|---------|
-| Name | empty | "订阅名称不能为空。" |
-| Price (add) | negative / non-numeric | "请输入非负数字，或点击按钮跳过。" |
-| Price (edit) | negative / non-numeric | "请输入非负数字。" |
-| Currency (add) | not 3-letter | "请输入 3 位币种代码，例如 CNY 或 USD。" |
-| Currency (edit) | not 3-letter | "请输入 3 位币种代码，例如 CNY 或 USD。" |
-| Date (add) | wrong format | "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" |
-| Date (edit) | wrong format | "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" |
-| Cycle | invalid button | "请点击按钮选择扣款周期。" |
+| Name | empty | "Subscription name cannot be empty." |
+| Price (add) | negative / non-numeric | "Enter a non-negative number, or select Skip price." |
+| Price (edit) | negative / non-numeric | "Enter a non-negative number." |
+| Currency (add) | not 3-letter | "Enter a 3-letter currency code, such as CNY or USD." |
+| Currency (edit) | not 3-letter | "Enter a 3-letter currency code, such as CNY or USD." |
+| Date (add) | wrong format | "Use YYYY-MM-DD format, e.g. 2026-06-01." |
+| Date (edit) | wrong format | "Use YYYY-MM-DD format, e.g. 2026-06-01." |
+| Cycle | invalid button | "Choose a billing cycle using the buttons." |

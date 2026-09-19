@@ -32,15 +32,15 @@ export async function deleteConfirmCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
-      await safeEditMessageText(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
+      await safeEditMessageText(ctx, "Unable to identify your account.");
       logger.warn("Delete confirm callback without userKey");
       return;
     }
 
     const parsed = parseDeleteCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed) {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
 
@@ -55,8 +55,11 @@ export async function deleteConfirmCallback(ctx: BotContext): Promise<void> {
       ctx.env.ENCRYPTION_KEY,
     );
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "已经删除。");
-      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+      await safeAnswerCallbackQuery(ctx, "Already deleted.");
+      await safeEditMessageText(
+        ctx,
+        "Subscription not found, or it has been deleted.",
+      );
       return;
     }
 
@@ -67,13 +70,16 @@ export async function deleteConfirmCallback(ctx: BotContext): Promise<void> {
       // Do not log subscription name
     });
 
-    await safeAnswerCallbackQuery(ctx, "已删除。");
-    await safeEditMessageText(ctx, `“${sub.name}”已删除。`);
+    await safeAnswerCallbackQuery(ctx, " has been deleted.");
+    await safeEditMessageText(ctx, `“${sub.name}” has been deleted.`);
   } catch (error) {
     logger.error("Error in deleteConfirmCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -82,20 +88,23 @@ export async function deleteCancelCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
-      await safeEditMessageText(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
+      await safeEditMessageText(ctx, "Unable to identify your account.");
       logger.warn("Delete cancel callback without userKey");
       return;
     }
 
     logger.info("Delete cancelled");
 
-    await safeAnswerCallbackQuery(ctx, "已取消。");
-    await safeEditMessageText(ctx, "已取消删除。");
+    await safeAnswerCallbackQuery(ctx, "Cancelled.");
+    await safeEditMessageText(ctx, "Deletion cancelled.");
   } catch (error) {
     logger.error("Error in deleteCancelCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }

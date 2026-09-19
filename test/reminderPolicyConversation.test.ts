@@ -62,14 +62,14 @@ describe("reminder policy input", () => {
     }).inline_keyboard.flat();
 
     expect(inherited.map((button) => button.text)).toEqual([
-      "✓ 跟随默认设置",
-      "仅提前 1 天提醒一次",
-      "取消",
+      "✓ Use default settings",
+      "Remind once, 1 day before",
+      "Cancel",
     ]);
     expect(overridden.map((button) => button.text)).toEqual([
-      "跟随默认设置",
-      "✓ 仅提前 1 天提醒一次",
-      "取消",
+      "Use default settings",
+      "✓ Remind once, 1 day before",
+      "Cancel",
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("reminder policy input", () => {
       collectReminderPolicyInput(conversation, ctx, "sub-1"),
     ).resolves.toEqual({ mode: "once", daysBefore: 1 });
     expect(invalid.answerCallbackQuery).toHaveBeenCalledWith(
-      "请选择有效的提醒方式。",
+      "Choose a valid reminder preference.",
     );
   });
 
@@ -101,7 +101,7 @@ describe("reminder policy input", () => {
     await expect(
       collectReminderPolicyInput(conversation, ctx, "sub-1"),
     ).resolves.toBeNull();
-    expect(reply).toHaveBeenCalledWith("已取消。");
+    expect(reply).toHaveBeenCalledWith("Cancelled.");
   });
 });
 
@@ -146,7 +146,7 @@ describe("editReminderConversation", () => {
     const updated = await service.get("user-1", "sub-1", VALID_KEY);
     expect(updated?.reminderPolicy).toEqual({ mode: "once", daysBefore: 1 });
     expect(reply).toHaveBeenLastCalledWith(
-      expect.stringContaining("提醒方式设为"),
+      expect.stringContaining("reminder preference set to"),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -208,8 +208,8 @@ describe("editReminderConversation", () => {
             type: "table",
             cells: expect.arrayContaining([
               [
-                expect.objectContaining({ text: "提醒" }),
-                expect.objectContaining({ text: "跟随默认设置" }),
+                expect.objectContaining({ text: "Reminder" }),
+                expect.objectContaining({ text: "Use default settings" }),
               ],
             ]),
           }),
@@ -275,7 +275,7 @@ describe("settings overview conversation", () => {
     expect(external).toHaveBeenCalled();
     expect(
       JSON.stringify(updates[0].editMessageText.mock.calls[0][0]),
-    ).toContain("关闭");
+    ).toContain("Off");
     expect(
       JSON.stringify(updates[1].editMessageText.mock.calls[0][0]),
     ).toContain("10:00");

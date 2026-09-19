@@ -18,7 +18,7 @@ export async function addCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     logger.warn("Add command without userKey");
     return;
   }
@@ -76,9 +76,9 @@ export async function addCommand(ctx: BotContext): Promise<void> {
   });
 
   await ctx.reply(
-    `订阅已添加。\n` +
-      `${sub.name} — ${sub.price} ${sub.currency} — ${formatBillingCycle(sub.billingCycle, sub.billingInterval)} — 下次扣款：${sub.nextBillingDate}\n` +
-      `短 ID：${shortId(sub.id)}`,
+    `Subscription added.\n` +
+      `${sub.name} — ${sub.price} ${sub.currency} — ${formatBillingCycle(sub.billingCycle, sub.billingInterval)} — Next payment: ${sub.nextBillingDate}\n` +
+      `Short ID: ${shortId(sub.id)}`,
   );
 
   if (showSettingsOnboarding) {

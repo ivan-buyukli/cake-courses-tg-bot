@@ -31,9 +31,10 @@ export function formatRelativeBillingDate(
   today = formatDate(new Date()),
 ): string {
   const days = daysBetweenDates(today, nextBillingDate);
-  if (days === 0) return "今天";
-  if (days > 0) return `${days} 天后`;
-  return `已过期 ${Math.abs(days)} 天`;
+  if (days === 0) return "Today";
+  if (days > 0) return `${days} ${days === 1 ? "day" : "days"} away`;
+  const overdueDays = Math.abs(days);
+  return `Overdue by ${overdueDays} ${overdueDays === 1 ? "day" : "days"}`;
 }
 
 export function formatSubscriptionLine(
@@ -48,7 +49,7 @@ export function formatSubscriptionLine(
 
   if (sub.status !== "paused") {
     parts.push(
-      `${formatBillingDateLabel(sub)}：${formatRelativeBillingDate(
+      `${formatBillingDateLabel(sub)}: ${formatRelativeBillingDate(
         sub.nextBillingDate,
         today,
       )}`,
@@ -66,8 +67,8 @@ export function formatSubscriptionFullLine(
     `${formatStatusPrefix(sub)}${sub.name}`,
     formatPrice(sub),
     formatBillingCycle(sub.billingCycle, sub.billingInterval),
-    `${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`,
-    `ID：${shortId(sub.id)}`,
+    `${formatBillingDateLabel(sub)}: ${sub.nextBillingDate}`,
+    `ID: ${shortId(sub.id)}`,
   ].filter(Boolean);
   return `${index + 1}. ${parts.join(" — ")}`;
 }
@@ -75,17 +76,17 @@ export function formatSubscriptionFullLine(
 export function formatSubscriptionDetails(sub: Subscription): string {
   const lines: string[] = [`${formatStatusPrefix(sub)}${sub.name}`];
   if (sub.price !== undefined) {
-    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
+    lines.push(`Price: ${sub.price} ${sub.currency ?? ""}`.trim());
   }
   lines.push(
-    `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
-    `类型：${formatSubscriptionType(sub)}`,
-    `自动续费：${formatAutoRenew(sub)}`,
-    `${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`,
-    `提醒：${formatReminderPolicy(sub)}`,
-    `状态：${formatStatus(sub.status)}`,
+    `Cycle: ${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
+    `Type: ${formatSubscriptionType(sub)}`,
+    `Auto-renewal: ${formatAutoRenew(sub)}`,
+    `${formatBillingDateLabel(sub)}: ${sub.nextBillingDate}`,
+    `Reminder: ${formatReminderPolicy(sub)}`,
+    `Status: ${formatStatus(sub.status)}`,
   );
-  if (sub.category) lines.push(`分类：${sub.category}`);
-  if (sub.note) lines.push(`备注：${sub.note}`);
+  if (sub.category) lines.push(`Category: ${sub.category}`);
+  if (sub.note) lines.push(`Notes: ${sub.note}`);
   return lines.join("\n");
 }

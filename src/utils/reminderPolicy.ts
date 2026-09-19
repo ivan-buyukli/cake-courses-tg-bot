@@ -4,9 +4,9 @@ export const PROJECT_REMINDER_MAX_DAYS_BEFORE = 1;
 
 export function formatReminderPolicy(sub: Subscription): string {
   if (sub.reminderPolicy?.mode === "once") {
-    return "仅提前 1 天提醒一次";
+    return "Remind once, 1 day before";
   }
-  return "跟随默认设置";
+  return "Use default settings";
 }
 
 export function getReminderStartDaysBefore(

@@ -195,7 +195,7 @@ describe("processReminderEntry", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.reply_markup.inline_keyboard[0][0]).toEqual({
-      text: "已续费 · Netflix",
+      text: "Renewed · Netflix",
       style: "success",
       callback_data: "reminder:renew:sub-1:2026-06-04",
     });
@@ -611,9 +611,9 @@ describe("processReminderEntry", () => {
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(JSON.stringify(body.rich_message)).toContain("体验到期");
+    expect(JSON.stringify(body.rich_message)).toContain("Trial ends");
     expect(JSON.stringify(body.rich_message)).toContain(
-      "体验到期后可能开始扣款",
+      "Charges may begin when the trial ends",
     );
   });
 
@@ -677,8 +677,8 @@ describe("processReminderEntry", () => {
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(JSON.stringify(body.rich_message)).toContain("服务到期");
-    expect(JSON.stringify(body.rich_message)).toContain("服务到期");
+    expect(JSON.stringify(body.rich_message)).toContain("Service expires");
+    expect(JSON.stringify(body.rich_message)).toContain("Service expires");
 
     const updated = await subscriptionService.get(userKey, subId, VALID_KEY);
     expect(updated?.status).toBe("paused");
@@ -1228,23 +1228,25 @@ describe("processReminderEntry", () => {
     expect(await reminderRepo.hasSent(userKey, "sub-2", date, date)).toBe(true);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(JSON.stringify(body.rich_message)).toContain("订阅提醒 · 2 项");
+    expect(JSON.stringify(body.rich_message)).toContain(
+      "Subscription reminders · 2 items",
+    );
     expect(body.reply_markup.inline_keyboard).toEqual([
       [
         {
-          text: "已续费 · Cancelled One",
+          text: "Renewed · Cancelled One",
           style: "success",
           callback_data: "reminder:renew:sub-1:2026-06-01",
         },
       ],
       [
         {
-          text: "已续费 · Cancelled Two",
+          text: "Renewed · Cancelled Two",
           style: "success",
           callback_data: "reminder:renew:sub-2:2026-06-01",
         },
       ],
-      [{ text: "管理订阅", callback_data: "nav:list" }],
+      [{ text: "Manage subscriptions", callback_data: "nav:list" }],
     ]);
 
     const first = await subscriptionService.get(userKey, "sub-1", VALID_KEY);

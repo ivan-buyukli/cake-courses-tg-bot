@@ -6,8 +6,8 @@ import type {
 import { formatBillingCycleValue } from "./billingCycle.js";
 
 const STATUS_LABELS: Record<SubscriptionStatus, string> = {
-  active: "活跃",
-  paused: "已暂停",
+  active: "Active",
+  paused: "Paused",
 };
 
 export function formatStatus(status: SubscriptionStatus): string {

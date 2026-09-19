@@ -13,16 +13,16 @@ export function reminderPolicyKeyboard(
   const inherited = policy === undefined;
   return new GrammyInlineKeyboard()
     .text(
-      inherited ? "✓ 跟随默认设置" : "跟随默认设置",
+      inherited ? "✓ Use default settings" : "Use default settings",
       `editreminder:inherit:${subId}`,
     )
     .row()
     .text(
-      inherited ? "仅提前 1 天提醒一次" : "✓ 仅提前 1 天提醒一次",
+      inherited ? "Remind once, 1 day before" : "✓ Remind once, 1 day before",
       `editreminder:once1:${subId}`,
     )
     .row()
-    .text("取消", `editreminder:cancel:${subId}`);
+    .text("Cancel", `editreminder:cancel:${subId}`);
 }
 
 export async function collectReminderPolicyInput(
@@ -35,7 +35,7 @@ export async function collectReminderPolicyInput(
 
     if (updateCtx.message?.text) {
       if (isCancelInput(updateCtx.message.text)) {
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         return null;
       }
       continue;
@@ -46,14 +46,16 @@ export async function collectReminderPolicyInput(
     );
     if (!parsed || parsed.subId !== subId) {
       if (updateCtx.callbackQuery) {
-        await updateCtx.answerCallbackQuery("请选择有效的提醒方式。");
+        await updateCtx.answerCallbackQuery(
+          "Choose a valid reminder preference.",
+        );
       }
       continue;
     }
 
     await updateCtx.answerCallbackQuery();
     if (parsed.action === "cancel") {
-      await ctx.reply("已取消。");
+      await ctx.reply("Cancelled.");
       return null;
     }
     return parsed.action === "once1"

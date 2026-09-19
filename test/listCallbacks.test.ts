@@ -257,17 +257,17 @@ describe("list manager keyboards", () => {
 
     const firstPage = buildListPageKeyboard(subs, 0);
     expect(keyboardButtons(firstPage)).toContainEqual({
-      text: "➡️ 下一页",
+      text: "➡️ Next",
       callback_data: "list:page:1",
     });
 
     const middlePage = buildListPageKeyboard(subs, 1);
     expect(keyboardButtons(middlePage)).toContainEqual({
-      text: "⬅️ 上一页",
+      text: "⬅️ Previous",
       callback_data: "list:page:0",
     });
     expect(keyboardButtons(middlePage)).toContainEqual({
-      text: "➡️ 下一页",
+      text: "➡️ Next",
       callback_data: "list:page:2",
     });
   });
@@ -278,17 +278,17 @@ describe("list manager keyboards", () => {
     expect(keyboardButtons(keyboard)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          text: "✏️ 编辑",
+          text: "✏️ Edit",
           callback_data: "list:edit:sub-1:0",
         }),
         expect.objectContaining({
-          text: "🗑 删除",
+          text: "🗑 Delete",
           callback_data: "list:del:sub-1:0",
         }),
-        { text: "⏸ 暂停", callback_data: "list:pause:sub-1:0" },
-        { text: "标记体验", callback_data: "list:ef:trial:sub-1:0" },
+        { text: "⏸ Pause", callback_data: "list:pause:sub-1:0" },
+        { text: "Mark as trial", callback_data: "list:ef:trial:sub-1:0" },
         {
-          text: "关闭自动续费",
+          text: "Disable auto-renewal",
           callback_data: "list:ef:autorenew:sub-1:0",
         },
       ]),
@@ -307,10 +307,10 @@ describe("list manager keyboards", () => {
 
     expect(keyboardButtons(keyboard)).toEqual(
       expect.arrayContaining([
-        { text: "▶️ 恢复", callback_data: "list:resume:sub-1:2" },
-        { text: "取消体验", callback_data: "list:ef:trial:sub-1:2" },
+        { text: "▶️ Resume", callback_data: "list:resume:sub-1:2" },
+        { text: "Remove trial status", callback_data: "list:ef:trial:sub-1:2" },
         {
-          text: "开启自动续费",
+          text: "Enable auto-renewal",
           callback_data: "list:ef:autorenew:sub-1:2",
         },
       ]),
@@ -321,17 +321,17 @@ describe("list manager keyboards", () => {
     const keyboard = buildEditFieldKeyboard("sub-1", 0);
     const labels = keyboardButtons(keyboard).map((button) => button.text);
 
-    expect(labels).toContain("名称");
-    expect(labels).toContain("下次扣款日期");
-    expect(labels).toContain("提醒方式");
-    expect(labels).not.toContain("切换体验");
-    expect(labels).not.toContain("切换自动续费");
+    expect(labels).toContain("Name");
+    expect(labels).toContain("Next billing date");
+    expect(labels).toContain("Reminder preference");
+    expect(labels).not.toContain("Toggle trial");
+    expect(labels).not.toContain("Toggle auto-renewal");
     expect(keyboardButtons(keyboard)).not.toContainEqual({
-      text: "标记体验",
+      text: "Mark as trial",
       callback_data: "list:ef:trial:sub-1:0",
     });
     expect(keyboardButtons(keyboard)).not.toContainEqual({
-      text: "关闭自动续费",
+      text: "Disable auto-renewal",
       callback_data: "list:ef:autorenew:sub-1:0",
     });
   });
@@ -373,7 +373,9 @@ describe("list panel age check", () => {
 
     const editedText = (ctx.editMessageText as ReturnType<typeof vi.fn>).mock
       .calls[0][0];
-    expect(editedText.blocks[0].text).toBe("你的订阅 · 1 项 · 第 1/1 页");
+    expect(editedText.blocks[0].text).toBe(
+      "Your subscriptions · 1 items · Page 1/1",
+    );
   });
 
   it("old panel answers with expired-panel message", async () => {
@@ -385,7 +387,7 @@ describe("list panel age check", () => {
     await listPageCallback(ctx as any);
 
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      "这个管理面板已过期，请重新打开。",
+      "This management panel has expired. Please open it again.",
     );
   });
 
@@ -398,7 +400,7 @@ describe("list panel age check", () => {
     await listPageCallback(ctx as any);
 
     expect(ctx.editMessageText).toHaveBeenCalledWith(
-      expect.stringContaining("管理面板已过期"),
+      expect.stringContaining("management panel has expired"),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -428,16 +430,16 @@ describe("rich list navigation", () => {
     ).toBe("Name 12");
     expect(
       select.editMessageText.mock.calls[0][1].reply_markup.inline_keyboard.flat(),
-    ).toContainEqual({ text: "← 返回列表", callback_data: "list:back:1" });
+    ).toContainEqual({ text: "← Back to list", callback_data: "list:back:1" });
     const back = createListCallbackContext("list:back:1", { kv });
     await listBackCallback(back as any);
     expect(back.editMessageText.mock.calls[0][0].blocks[0].text).toContain(
-      "第 2/2 页",
+      "Page 2/2",
     );
     const remove = createListCallbackContext("list:delok:sub-12:1", { kv });
     await listDeleteConfirmCallback(remove as any);
     expect(remove.editMessageText.mock.calls[0][0].blocks[0].text).toContain(
-      "12 项 · 第 1/1 页",
+      "12 items · Page 1/1",
     );
     expect(await service.get("user-key", "sub-12", VALID_KEY)).toBeNull();
   });

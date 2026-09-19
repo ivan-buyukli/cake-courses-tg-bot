@@ -198,10 +198,11 @@ export function buildReportData(
     baseCurrency,
   );
   const currentMonthly = buildReportView({
-    title: "月均订阅成本",
-    totalLabel: "月均订阅成本",
-    chartTitle: "每日摊平成本",
-    chartSubtitle: "活跃自动续费订阅折算为月均后按 30 天摊平",
+    title: "Monthly subscription cost",
+    totalLabel: "Monthly subscription cost",
+    chartTitle: "Daily average cost",
+    chartSubtitle:
+      "Monthly cost of active auto-renewing subscriptions, spread over 30 days",
     subscriptions,
     exchangeRates,
     baseCurrency,
@@ -211,10 +212,10 @@ export function buildReportData(
     dayLabelPrefix: "T+",
   });
   const currentMonthDue = buildReportView({
-    title: "未来30天支出",
-    totalLabel: "未来30天实际扣款",
-    chartTitle: "未来30天扣款分布",
-    chartSubtitle: "按未来30天日期汇总的实际扣款金额",
+    title: "Next 30 days spending",
+    totalLabel: "Actual payments in the next 30 days",
+    chartTitle: "Payment dates over the next 30 days",
+    chartSubtitle: "Actual payments grouped by date over the next 30 days",
     subscriptions,
     exchangeRates,
     baseCurrency,
@@ -231,10 +232,10 @@ export function buildReportData(
     baseCurrency,
   );
   const yearlyProjection = buildReportView({
-    title: "年度预期支出",
-    totalLabel: "未来12个月预期扣款",
-    chartTitle: "月度预期扣款分布",
-    chartSubtitle: "按月汇总的未来12个月预期扣款金额",
+    title: "Expected annual spending",
+    totalLabel: "Expected payments in the next 12 months",
+    chartTitle: "Expected payments by month",
+    chartSubtitle: "Expected payments grouped by month over the next 12 months",
     subscriptions,
     exchangeRates,
     baseCurrency,

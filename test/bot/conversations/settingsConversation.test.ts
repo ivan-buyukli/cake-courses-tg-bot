@@ -23,11 +23,11 @@ describe("settingsConversation", () => {
       const buttons = kb.inline_keyboard.flat();
       const texts = buttons.map((b) => b.text);
 
-      expect(texts.some((t) => t.includes("报告币种"))).toBe(true);
-      expect(texts.some((t) => t.includes("提醒"))).toBe(true);
-      expect(texts.some((t) => t.includes("时间"))).toBe(true);
-      expect(texts.some((t) => t.includes("时区"))).toBe(true);
-      expect(texts).toContain("完成");
+      expect(texts.some((t) => t.includes("Report currency"))).toBe(true);
+      expect(texts.some((t) => t.includes("Reminder"))).toBe(true);
+      expect(texts.some((t) => t.includes("time"))).toBe(true);
+      expect(texts.some((t) => t.includes("Timezone"))).toBe(true);
+      expect(texts).toContain("Done");
     });
 
     it("offers disabling when reminders are enabled", () => {
@@ -37,8 +37,12 @@ describe("settingsConversation", () => {
       };
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
-      const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
-      expect(reminderBtn?.text).toBe("关闭提醒");
+      const reminderBtn = buttons.find(
+        (b) =>
+          "callback_data" in b &&
+          b.callback_data === "settings:toggle_reminder",
+      );
+      expect(reminderBtn?.text).toBe("Disable reminders");
     });
 
     it("offers enabling when reminders are disabled", () => {
@@ -48,8 +52,12 @@ describe("settingsConversation", () => {
       };
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
-      const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
-      expect(reminderBtn?.text).toBe("开启提醒");
+      const reminderBtn = buttons.find(
+        (b) =>
+          "callback_data" in b &&
+          b.callback_data === "settings:toggle_reminder",
+      );
+      expect(reminderBtn?.text).toBe("Enable reminders");
     });
 
     it("shows current hour in HH:00 format", () => {
@@ -59,8 +67,8 @@ describe("settingsConversation", () => {
       };
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
-      const timeBtn = buttons.find((b) => b.text.includes("时间"));
-      expect(timeBtn?.text).toBe("提醒时间");
+      const timeBtn = buttons.find((b) => b.text.includes("time"));
+      expect(timeBtn?.text).toBe("Reminder time");
       expect(settingsPresentation(settings).plainText).toContain("09:00");
     });
 
@@ -102,7 +110,7 @@ describe("settingsConversation", () => {
     it("has a back button", () => {
       const kb = hourPickerKeyboard();
       const buttons = kb.inline_keyboard.flat();
-      const backBtn = buttons.find((b) => b.text === "返回");
+      const backBtn = buttons.find((b) => b.text === "Back");
       expect(backBtn).toBeDefined();
     });
   });
@@ -129,14 +137,16 @@ describe("settingsConversation", () => {
     it("has a back button", () => {
       const kb = timezoneKeyboard();
       const buttons = kb.inline_keyboard.flat();
-      const backBtn = buttons.find((b) => b.text === "返回");
+      const backBtn = buttons.find((b) => b.text === "Back");
       expect(backBtn).toBeDefined();
     });
 
     it("has a custom offset button", () => {
       const kb = timezoneKeyboard();
       const buttons = kb.inline_keyboard.flat();
-      const customBtn = buttons.find((b) => b.text === "自定义时区偏移");
+      const customBtn = buttons.find(
+        (b) => b.text === "Custom timezone offset",
+      );
       expect(customBtn).toBeDefined();
       expect(customBtn?.callback_data).toBe("settings:tzoffset");
     });
@@ -156,8 +166,8 @@ describe("settingsConversation", () => {
           "UTC+9:30",
           "UTC+10",
           "UTC-3",
-          "其他",
-          "返回",
+          "Other",
+          "Back",
         ]),
       );
       expect(texts.some((text) => firstPageLabels.includes(text))).toBe(false);

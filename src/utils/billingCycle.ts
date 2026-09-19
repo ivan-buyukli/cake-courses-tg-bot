@@ -26,10 +26,10 @@ const INTERVAL_LIMITS: Record<BillingInterval["unit"], number> = {
 };
 
 const UNIT_LABELS: Record<BillingInterval["unit"], string> = {
-  day: "天",
-  week: "周",
-  month: "个月",
-  year: "年",
+  day: "days",
+  week: "weeks",
+  month: "months",
+  year: "years",
 };
 
 const ENGLISH_UNITS: Record<string, BillingInterval["unit"] | undefined> = {
@@ -69,9 +69,9 @@ export function parseBillingCycleText(input: string): ParsedBillingCycle {
   }
 
   throw new ValidationError(
-    `周期无效：“${input}”。可选值：${STANDARD_BILLING_CYCLES.join(
+    `Invalid billing cycle: “${input}”. Valid values: ${STANDARD_BILLING_CYCLES.join(
       ", ",
-    )}，或 every 30 days、30d、4w、6m、2y、每30天、每4周、每6个月、每2年。`,
+    )}, or every 30 days, 30d, 4w, 6m, or 2y.`,
   );
 }
 
@@ -119,14 +119,14 @@ export function validateBillingInterval(
 ): BillingInterval {
   if (!unit) {
     throw new ValidationError(
-      `周期无效：“${input}”。仅支持天、周、月或年，例如 30d、4w、6m、2y。`,
+      `Invalid billing cycle: “${input}”. Use days, weeks, months, or years, such as 30d, 4w, 6m, or 2y.`,
     );
   }
 
   const max = INTERVAL_LIMITS[unit];
   if (!Number.isInteger(count) || count < 1 || count > max) {
     throw new ValidationError(
-      `${UNIT_LABELS[unit]}间隔无效：“${input}”。请输入 1 到 ${max} ${UNIT_LABELS[unit]}。`,
+      `${UNIT_LABELS[unit]} interval is invalid: “${input}”. Enter a value from 1 to ${max} ${UNIT_LABELS[unit]}.`,
     );
   }
 
@@ -138,18 +138,22 @@ export function formatBillingCycleValue(
   billingInterval?: BillingInterval,
 ): string {
   if (billingCycle === "interval" && billingInterval) {
-    return `每 ${billingInterval.count} ${UNIT_LABELS[billingInterval.unit]}`;
+    const unit =
+      billingInterval.count === 1
+        ? billingInterval.unit
+        : UNIT_LABELS[billingInterval.unit];
+    return `Every ${billingInterval.count} ${unit}`;
   }
 
   const labels: Record<Exclude<BillingCycle, "interval">, string> = {
-    weekly: "每周",
-    monthly: "每月",
-    quarterly: "每季度",
-    yearly: "每年",
-    custom: "自定义",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    quarterly: "Quarterly",
+    yearly: "Yearly",
+    custom: "Custom",
   };
 
-  return billingCycle === "interval" ? "自定义间隔" : labels[billingCycle];
+  return billingCycle === "interval" ? "Custom interval" : labels[billingCycle];
 }
 
 export function formatSubscriptionBillingCycle(sub: Subscription): string {

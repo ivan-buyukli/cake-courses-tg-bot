@@ -60,9 +60,9 @@ describe("startCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("欢迎使用");
-    expect(replyText).toContain("添加第一个订阅");
-    expect(replyText).toContain("底部菜单");
+    expect(replyText).toContain("Welcome");
+    expect(replyText).toContain("add your first subscription");
+    expect(replyText).toContain("bottom menu");
 
     const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0][1];
@@ -82,8 +82,8 @@ describe("startCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("欢迎回来");
-    expect(replyText).toContain("底部菜单");
+    expect(replyText).toContain("Welcome back");
+    expect(replyText).toContain("bottom menu");
 
     const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0][1];
@@ -103,8 +103,8 @@ describe("startCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("欢迎使用");
-    expect(replyText).toContain("底部菜单");
+    expect(replyText).toContain("Welcome");
+    expect(replyText).toContain("bottom menu");
 
     const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0][1];

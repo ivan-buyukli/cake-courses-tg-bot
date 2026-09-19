@@ -19,11 +19,11 @@ export function currencyKeyboard(hasPrice: boolean): InlineKeyboard {
     if (index % 4 === 3) keyboard.row();
   });
 
-  keyboard.text("其他", "addcurrency:other");
+  keyboard.text("Other", "addcurrency:other");
   if (!hasPrice) {
-    keyboard.text("不填写", "addcurrency:skip");
+    keyboard.text("Leave unset", "addcurrency:skip");
   }
-  keyboard.row().text("取消", "addcurrency:cancel");
+  keyboard.row().text("Cancel", "addcurrency:cancel");
   return keyboard;
 }
 
@@ -34,13 +34,13 @@ export function validateCurrencyInput(
   const trimmed = currencyStr.trim().toUpperCase();
   if (trimmed === "SKIP" || trimmed === "") {
     if (hasPrice) {
-      return { error: "已填写价格时必须选择币种。" };
+      return { error: "A currency is required when a price is set." };
     }
     return { currency: undefined };
   }
   if (!/^[A-Z]{3}$/.test(trimmed)) {
     return {
-      error: "请输入 3 位币种代码，例如 CNY 或 USD。",
+      error: "Enter a 3-letter currency code, such as CNY or USD.",
     };
   }
   return { currency: trimmed };
@@ -54,7 +54,7 @@ export function validateCurrencyCode(currencyStr: string): {
   if (!/^[A-Z]{3}$/.test(trimmed)) {
     return {
       currency: "",
-      error: "请输入 3 位币种代码，例如 CNY 或 USD。",
+      error: "Enter a 3-letter currency code, such as CNY or USD.",
     };
   }
   return { currency: trimmed };

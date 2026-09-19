@@ -103,8 +103,8 @@ describe("adminSyncExchangeRatesCommand", () => {
       JSON.stringify({ base: "USD", rates: { USD: 1, CNY: 7.1 } }),
     );
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(text).toContain("极简汇率同步完成");
-    expect(text).toContain("币种数量：2");
+    expect(text).toContain("XCurrency exchange rates synced");
+    expect(text).toContain("Currency count: 2");
     expect(text).not.toContain("xcurrency-secret");
   });
 
@@ -117,7 +117,9 @@ describe("adminSyncExchangeRatesCommand", () => {
 
     await adminSyncExchangeRatesCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("极简汇率同步失败，请稍后重试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "XCurrency exchange rate sync failed. Please try again later.",
+    );
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(replyText).not.toContain("xcurrency-secret");
   });

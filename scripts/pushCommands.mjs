@@ -2,14 +2,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const commands = [
-  { command: "start", description: "开始使用" },
-  { command: "menu", description: "打开主菜单" },
-  { command: "add", description: "添加订阅" },
-  { command: "list", description: "管理订阅" },
-  { command: "report", description: "查看支出报告" },
-  { command: "reminders", description: "查看提醒" },
-  { command: "settings", description: "打开设置" },
-  { command: "help", description: "查看帮助" },
+  { command: "start", description: "Get started" },
+  { command: "menu", description: "Open main menu" },
+  { command: "add", description: "Add subscription" },
+  { command: "list", description: "Manage subscriptions" },
+  { command: "report", description: "View spending report" },
+  { command: "reminders", description: "View reminders" },
+  { command: "settings", description: "Open settings" },
+  { command: "help", description: "View help" },
 ];
 
 function parseDotEnv(content) {

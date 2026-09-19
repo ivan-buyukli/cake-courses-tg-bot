@@ -114,7 +114,7 @@ describe("reportTextCommand", () => {
     await reportTextCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "你还没有添加任何订阅。",
+      "You have not added any subscriptions yet.",
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -131,7 +131,7 @@ describe("reportTextCommand", () => {
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls
       .map((call: [string]) => call[0])
       .join("\n");
-    expect(text).toContain("未来30天支出");
+    expect(text).toContain("Next 30 days spending");
     expect(text).toContain("Netflix");
   });
 
@@ -151,7 +151,7 @@ describe("reportTextCommand", () => {
       .map((call: [string]) => call[0])
       .join("\n");
     expect(text).toContain("USD Service  $10.00 → €8.75");
-    expect(text).toContain("合计 €8.75");
+    expect(text).toContain("Total €8.75");
   });
 
   it("refuses when userKey is missing", async () => {
@@ -160,6 +160,8 @@ describe("reportTextCommand", () => {
 
     await reportTextCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
   });
 });

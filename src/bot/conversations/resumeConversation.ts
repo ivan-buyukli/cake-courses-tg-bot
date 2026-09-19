@@ -20,47 +20,49 @@ import {
 
 function retainedStatusLabels(sub: Subscription): string[] {
   const labels: string[] = [];
-  if (isTrialSubscription(sub)) labels.push("体验");
-  if (!isAutoRenewing(sub)) labels.push("停止续费");
+  if (isTrialSubscription(sub)) labels.push("Trial");
+  if (!isAutoRenewing(sub)) labels.push("Auto-renewal disabled");
   return labels;
 }
 
 export function buildResumePrompt(sub: Subscription): string {
   const dateLabel = formatBillingDateLabel(sub);
   const lines = [
-    `恢复"${sub.name}"？`,
-    `当前${dateLabel}日期：${sub.nextBillingDate}`,
+    `Resume "${sub.name}"?`,
+    `Current ${dateLabel}: ${sub.nextBillingDate}`,
     "",
-    "恢复后会重新开启提醒和日期跟踪。",
+    "Resuming re-enables reminders and date tracking.",
   ];
 
   const notes: string[] = [];
   if (isTrialSubscription(sub)) {
     notes.push(
-      "这个项目仍标记为体验，不会计入支出统计，也不会自动推进扣款日。",
+      "This subscription is still marked as a trial. It is excluded from spending totals and its billing date will not advance automatically.",
     );
   }
   if (!isAutoRenewing(sub)) {
-    notes.push("这个项目仍为停止续费，到期提醒发送后会自动暂停。");
+    notes.push(
+      "This subscription still has auto-renewal disabled. It will pause automatically after its expiration reminder is sent.",
+    );
   }
 
   if (notes.length > 0) {
     lines.push(...notes);
   }
 
-  lines.push("", "请选择按当前日期恢复，或选择日期后恢复：");
+  lines.push("", "Resume with the current date, or choose a new date:");
   return lines.join("\n");
 }
 
 export function buildResumeSuccessMessage(sub: Subscription): string {
   const dateLabel = formatBillingDateLabel(sub);
   const lines = [
-    `已恢复"${sub.name}"。`,
-    `${dateLabel}日期：${sub.nextBillingDate}`,
+    `Resumed "${sub.name}".`,
+    `${dateLabel}: ${sub.nextBillingDate}`,
   ];
   const retained = retainedStatusLabels(sub);
   if (retained.length > 0) {
-    lines.push(`保留状态：${retained.join("、")}`);
+    lines.push(`Unchanged status: ${retained.join(", ")}`);
   }
   return lines.join("\n");
 }
@@ -77,13 +79,16 @@ export async function resumeConversation(
   }));
 
   if (!ctxData.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     return;
   }
 
   const userKey = ctxData.userKey;
   const encryptionKey = ctxData.encryptionKey;
-  await hideMainMenu(ctx, "正在恢复订阅。可随时发送 /cancel 或“取消”退出。");
+  await hideMainMenu(
+    ctx,
+    "Resuming a subscription. Send /cancel or “Cancel” at any time to exit.",
+  );
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -95,13 +100,15 @@ export async function resumeConversation(
   });
 
   if (!sub) {
-    await ctx.reply("没有找到这个订阅，或它已被删除。");
+    await ctx.reply("Subscription not found, or it has been deleted.");
     await restoreMainMenu(ctx);
     return;
   }
 
   if (sub.status === "active") {
-    await ctx.reply(`"${sub.name}" 已经是${formatStatus("active")}状态。`);
+    await ctx.reply(
+      `"${sub.name}" is already ${formatStatus("active").toLowerCase()}.`,
+    );
     if (isFromListManager(options)) {
       await updateListManagerDetail(ctx, sub, options.page, options.panel);
     }
@@ -115,8 +122,8 @@ export async function resumeConversation(
     buildResumePrompt(sub),
     {
       confirmValue: sub.nextBillingDate,
-      confirmButtonLabel: "按当前日期恢复",
-      cancelMessage: "已取消恢复操作。",
+      confirmButtonLabel: "Resume with current date",
+      cancelMessage: "Resume cancelled.",
     },
   );
 
@@ -155,7 +162,7 @@ async function resumeWithDate(
   });
 
   if (!resumed) {
-    await ctx.reply("恢复失败，请稍后再试。");
+    await ctx.reply("Could not resume. Please try again later.");
     await restoreMainMenu(ctx);
     return;
   }

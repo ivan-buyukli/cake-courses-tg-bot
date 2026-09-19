@@ -17,7 +17,7 @@ async function listSubscriptions(
   ctx: BotContext,
 ): Promise<Subscription[] | null> {
   if (!ctx.userKey) {
-    await ctx.reply("无法识别用户，请稍后再试。");
+    await ctx.reply("Unable to identify your account. Please try again later.");
     return null;
   }
 
@@ -47,7 +47,7 @@ function buildListMessages(header: string, lines: string[]): string[] {
       : current + "\n" + line;
     if (next.length > MAX_LIST_MESSAGE_LENGTH && !current.endsWith("\n\n")) {
       messages.push(current);
-      current = `${header}（续）：\n\n${line}`;
+      current = `${header} (continued): \n\n${line}`;
     } else {
       current = next;
     }
@@ -67,7 +67,7 @@ export async function listTextCommand(ctx: BotContext): Promise<void> {
   }
 
   if (subs.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。", {
+    await ctx.reply("You have not added any subscriptions yet.", {
       reply_markup: emptySubscriptionsKeyboard(),
     });
     return;
@@ -96,7 +96,7 @@ export async function listTextCommand(ctx: BotContext): Promise<void> {
   }
   if (pausedSubs.length > 0) {
     if (lines.length > 0) lines.push("");
-    lines.push("已暂停的服务：");
+    lines.push("Paused subscriptions: ");
     lines.push(
       ...pausedSubs.map((sub, index) =>
         formatSubscriptionLine(sub, index, today),
@@ -104,7 +104,7 @@ export async function listTextCommand(ctx: BotContext): Promise<void> {
     );
   }
 
-  for (const message of buildListMessages("你的订阅：", lines)) {
+  for (const message of buildListMessages("Your subscriptions: ", lines)) {
     await ctx.reply(message);
   }
 
@@ -123,7 +123,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   }
 
   if (subs.length === 0) {
-    await ctx.reply("你还没有添加任何订阅。", {
+    await ctx.reply("You have not added any subscriptions yet.", {
       reply_markup: emptySubscriptionsKeyboard(),
     });
     return;

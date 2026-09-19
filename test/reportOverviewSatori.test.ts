@@ -102,10 +102,11 @@ import {
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
-    title: "月均订阅成本",
-    totalLabel: "月均订阅成本",
-    chartTitle: "每日摊平成本",
-    chartSubtitle: "活跃自动续费订阅折算为月均后按 30 天摊平",
+    title: "Monthly subscription cost",
+    totalLabel: "Monthly subscription cost",
+    chartTitle: "Daily average cost",
+    chartSubtitle:
+      "Monthly cost of active auto-renewing subscriptions, spread over 30 days",
     generatedAt: "2026-06-17T00:00:00.000Z",
     baseCurrency: "CNY",
     subscriptionCount: 1,

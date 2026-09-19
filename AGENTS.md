@@ -197,7 +197,7 @@ Reusable controls:
   - `confirmationKeyboard()` for standard `<prefix>:confirm:<data>` / `<prefix>:cancel:<data>` callbacks.
   - `binaryActionKeyboard()` for two-button confirm/cancel style actions with custom callback data.
 - `src/utils/conversationInput.ts`
-  - `isCancelInput()` for recognizing `/cancel` and `取消`.
+  - `isCancelInput()` for recognizing `/cancel` and `Cancel`.
 
 Before adding a new selector:
 

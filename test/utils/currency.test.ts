@@ -25,7 +25,7 @@ describe("currency utils", () => {
 
     it("requires currency when price exists", () => {
       const result = validateCurrencyInput("skip", true);
-      expect(result.error).toBe("已填写价格时必须选择币种。");
+      expect(result.error).toBe("A currency is required when a price is set.");
     });
 
     it("accepts valid 3-letter codes", () => {
@@ -36,7 +36,9 @@ describe("currency utils", () => {
 
     it("rejects invalid codes", () => {
       const result = validateCurrencyInput("EURO", true);
-      expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
+      expect(result.error).toBe(
+        "Enter a 3-letter currency code, such as CNY or USD.",
+      );
     });
 
     it("uppercases lowercase input", () => {
@@ -55,7 +57,9 @@ describe("currency utils", () => {
     it("rejects codes that are not 3 letters", () => {
       const result = validateCurrencyCode("EURO");
       expect(result.currency).toBe("");
-      expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
+      expect(result.error).toBe(
+        "Enter a 3-letter currency code, such as CNY or USD.",
+      );
     });
 
     it("uppercases lowercase input", () => {
@@ -74,14 +78,14 @@ describe("currency utils", () => {
       const kb = currencyKeyboard(true);
       const json = kb.inline_keyboard;
       const allTexts = json.flat().map((b) => b.text);
-      expect(allTexts).not.toContain("不填写");
+      expect(allTexts).not.toContain("Leave unset");
     });
 
     it("includes skip button when hasPrice is false", () => {
       const kb = currencyKeyboard(false);
       const json = kb.inline_keyboard;
       const allTexts = json.flat().map((b) => b.text);
-      expect(allTexts).toContain("不填写");
+      expect(allTexts).toContain("Leave unset");
     });
   });
 });

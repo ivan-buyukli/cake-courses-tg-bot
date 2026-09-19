@@ -91,42 +91,42 @@ describe("parseAddArgs", () => {
   it("throws for too few arguments", () => {
     const args = ["/add", "Netflix", "12.99"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/用法/);
+    expect(() => parseAddArgs(args)).toThrow(/Usage/);
   });
 
   it("throws for missing name", () => {
     const args = ["/add", "", "12.99", "EUR", "monthly", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/名称/);
+    expect(() => parseAddArgs(args)).toThrow(/name/);
   });
 
   it("throws for invalid price", () => {
     const args = ["/add", "Netflix", "abc", "EUR", "monthly", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/价格/);
+    expect(() => parseAddArgs(args)).toThrow(/price/);
   });
 
   it("throws for negative price", () => {
     const args = ["/add", "Netflix", "-5", "EUR", "monthly", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/价格/);
+    expect(() => parseAddArgs(args)).toThrow(/price/);
   });
 
   it("throws for invalid cycle", () => {
     const args = ["/add", "Netflix", "12.99", "EUR", "daily", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/周期/);
+    expect(() => parseAddArgs(args)).toThrow(/cycle/);
   });
 
   it("throws for invalid date format", () => {
     const args = ["/add", "Netflix", "12.99", "EUR", "monthly", "06-01-2026"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/日期/);
+    expect(() => parseAddArgs(args)).toThrow(/date/);
   });
 
   it("throws for invalid date values", () => {
     const args = ["/add", "Netflix", "12.99", "EUR", "monthly", "2026-13-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/日期/);
+    expect(() => parseAddArgs(args)).toThrow(/date/);
   });
 });

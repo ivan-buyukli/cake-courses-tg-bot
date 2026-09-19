@@ -106,7 +106,7 @@ describe("simple commands", () => {
     await helpCommand(ctx);
 
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(text).toContain("/add <名称>");
+    expect(text).toContain("/add <Name>");
     expect(text).toContain("/list_text");
     expect(text).toContain("/delete_me");
   });
@@ -117,7 +117,9 @@ describe("simple commands", () => {
 
     await deleteMeCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
   });
 
   it("deleteMeCommand sends the privacy confirmation keyboard", async () => {
@@ -128,7 +130,7 @@ describe("simple commands", () => {
 
     const [text, options] = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0];
-    expect(text).toContain("永久删除");
+    expect(text).toContain("permanently delete");
     expect(JSON.stringify(options.reply_markup)).toContain(
       "privacy:delete_confirm",
     );
@@ -143,7 +145,9 @@ describe("simple commands", () => {
 
     await settingsCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
     expect(ctx.conversation.enter).not.toHaveBeenCalled();
   });
 
@@ -166,7 +170,9 @@ describe("addCommand", () => {
 
     await addCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
   });
 
   it("enters the interactive add conversation when no args are provided", async () => {
@@ -186,7 +192,7 @@ describe("addCommand", () => {
     await addCommand(ctx);
 
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("价格");
+    expect(replyText).toContain("Price");
   });
 
   it("creates a subscription from one-line input", async () => {
@@ -210,7 +216,7 @@ describe("addCommand", () => {
       status: "active",
     });
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("订阅已添加"),
+      expect.stringContaining("Subscription added"),
     );
     expect(ctx.reply).toHaveBeenCalledWith(
       expect.stringContaining("/settings"),
@@ -234,7 +240,9 @@ describe("listCommand and listFullCommand", () => {
 
     await listCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
   });
 
   it("listCommand reports an empty subscription list", async () => {
@@ -244,7 +252,7 @@ describe("listCommand and listFullCommand", () => {
     await listCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "你还没有添加任何订阅。",
+      "You have not added any subscriptions yet.",
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
@@ -285,7 +293,7 @@ describe("listCommand and listFullCommand", () => {
       text.indexOf("Late Active"),
     );
     expect(text.indexOf("Late Active")).toBeLessThan(
-      text.indexOf("已暂停的服务"),
+      text.indexOf("Paused subscriptions"),
     );
     expect(text).toContain("Paused Service");
   });
@@ -299,7 +307,7 @@ describe("listCommand and listFullCommand", () => {
 
     const [text, options] = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0];
-    expect(text).toContain("你的订阅");
+    expect(text).toContain("Your subscriptions");
     expect(JSON.stringify(options.reply_markup)).toContain(
       "list:select:sub-full:0",
     );
@@ -315,7 +323,7 @@ describe("listCommand and listFullCommand", () => {
     await listFullCommand(legacyCtx);
 
     expect(listCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("你的订阅"),
+      expect.stringContaining("Your subscriptions"),
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
     expect(
@@ -343,7 +351,9 @@ describe("remindersCommand", () => {
 
     await remindersCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
   });
 
   it("reports when there are no upcoming renewals", async () => {
@@ -357,7 +367,7 @@ describe("remindersCommand", () => {
     await remindersCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "近期没有即将扣款的订阅。",
+      "No upcoming subscription payments.",
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });

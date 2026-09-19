@@ -10,8 +10,8 @@ const TELEGRAM_MSG_LIMIT = 4096;
 
 export function formatReportText(report: SplitReportData): string {
   const lines = [
-    "订阅支出报告",
-    `生成日期：${report.generatedAt.slice(0, 10)}`,
+    "Subscription spending report",
+    `Generated on: ${report.generatedAt.slice(0, 10)}`,
   ];
 
   appendReportSection(lines, report.currentMonthly);
@@ -25,32 +25,32 @@ function appendReportSection(lines: string[], report: ReportData): void {
   lines.push(
     "",
     report.title,
-    `${report.totalLabel}：${formatMoney(report.totalBase, report.baseCurrency)}`,
-    `纳入统计：${report.includedCount}`,
+    `${report.totalLabel}: ${formatMoney(report.totalBase, report.baseCurrency)}`,
+    `Included subscriptions: ${report.includedCount}`,
   );
 
   if (report.byCurrency.length > 0) {
-    lines.push("", "按币种：");
+    lines.push("", "By currency: ");
     for (const summary of report.byCurrency) {
       const converted =
         summary.convertedTotal !== undefined
-          ? `（约 ${formatMoney(summary.convertedTotal, report.baseCurrency)}）`
-          : "（缺少汇率）";
+          ? ` (approx. ${formatMoney(summary.convertedTotal, report.baseCurrency)})`
+          : " (Missing exchange rate)";
       lines.push(
-        `- ${summary.currency}：${formatMoney(summary.total, summary.currency)} ${converted}`,
+        `- ${summary.currency}: ${formatMoney(summary.total, summary.currency)} ${converted}`,
       );
     }
   }
 
   const excludedNotes: string[] = [];
   if (report.excluded.trial > 0) {
-    excludedNotes.push(`体验 ${report.excluded.trial}`);
+    excludedNotes.push(`Trial ${report.excluded.trial}`);
   }
   if (report.excluded.nonRenewing > 0) {
-    excludedNotes.push(`已停续费 ${report.excluded.nonRenewing}`);
+    excludedNotes.push(`Auto-renewal off ${report.excluded.nonRenewing}`);
   }
   if (excludedNotes.length > 0) {
-    lines.push("", `未计入金额：${excludedNotes.join("，")}`);
+    lines.push("", `Excluded from totals: ${excludedNotes.join(", ")}`);
   }
 
   if (report.monthDistribution && report.monthDistribution.length > 0) {
@@ -58,10 +58,10 @@ function appendReportSection(lines: string[], report: ReportData): void {
       (item) => item.actualTotal > 0,
     );
     if (nonZeroMonths.length > 0) {
-      lines.push("", "按月分布：");
+      lines.push("", "By month: ");
       for (const item of nonZeroMonths) {
         lines.push(
-          `- ${item.monthKey}：实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`,
+          `- ${item.monthKey}: Actual ${formatMoney(item.actualTotal, report.baseCurrency)}`,
         );
       }
     }
@@ -70,24 +70,24 @@ function appendReportSection(lines: string[], report: ReportData): void {
       (item) => item.actualTotal > 0 || item.monthlyEquivalentTotal > 0,
     );
     if (nonZeroDays.length > 0) {
-      lines.push("", "按扣款日分布：");
+      lines.push("", "By billing date: ");
       for (const item of nonZeroDays) {
         const parts: string[] = [];
         if (item.actualTotal > 0) {
           parts.push(
-            `实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`,
+            `Actual ${formatMoney(item.actualTotal, report.baseCurrency)}`,
           );
         }
         if (item.monthlyEquivalentTotal > 0) {
           parts.push(
-            `等值 ${formatMoney(item.monthlyEquivalentTotal, report.baseCurrency)}`,
+            `Equivalent ${formatMoney(item.monthlyEquivalentTotal, report.baseCurrency)}`,
           );
         }
         const dayLabel =
           report.dayLabelPrefix !== undefined
             ? `${report.dayLabelPrefix}${item.day}`
-            : `${String(item.day).padStart(2, "0")} 日`;
-        lines.push(`- ${dayLabel}：${parts.join("，")}`);
+            : `Day ${String(item.day).padStart(2, "0")}`;
+        lines.push(`- ${dayLabel}: ${parts.join(", ")}`);
       }
     }
   }
@@ -117,31 +117,33 @@ export function formatTextReport(data: TextReportData): string[] {
       item.billingDate !== undefined
         ? `  ${item.billingDate}`
         : item.billingDay !== undefined
-          ? `  ${item.billingDay}日`
+          ? `  Day ${item.billingDay}`
           : "";
     return `${item.name}  ${money}${arrow}${date}`;
   };
 
-  push(`未来30天支出 · ${data.upcomingWindowStart}~${data.upcomingWindowEnd}`);
+  push(
+    `Next 30 days spending · ${data.upcomingWindowStart}~${data.upcomingWindowEnd}`,
+  );
   if (data.trialCount > 0 || data.nonRenewingCount > 0) {
     const notes: string[] = [];
-    if (data.trialCount > 0) notes.push(`体验 ${data.trialCount}`);
+    if (data.trialCount > 0) notes.push(`Trial ${data.trialCount}`);
     if (data.nonRenewingCount > 0) {
-      notes.push(`已停续费 ${data.nonRenewingCount}`);
+      notes.push(`Auto-renewal off ${data.nonRenewingCount}`);
     }
-    push(`未计入金额：${notes.join("，")}`);
+    push(`Excluded from totals: ${notes.join(", ")}`);
   }
 
   if (data.currentMonthItems.length === 0) {
-    push("暂无扣款");
+    push("No upcoming payments");
   } else {
     for (const item of data.currentMonthItems) push(fmtItem(item));
-    push(`合计 ${formatMoney(data.currentMonthTotal, data.baseCurrency)}`);
+    push(`Total ${formatMoney(data.currentMonthTotal, data.baseCurrency)}`);
   }
 
   push("───");
   push(
-    `年度预期 · ${data.currentMonthKey}~${data.yearMonthItems.length > 0 ? data.yearMonthItems[data.yearMonthItems.length - 1].monthKey : data.currentMonthKey}`,
+    `Annual forecast · ${data.currentMonthKey}~${data.yearMonthItems.length > 0 ? data.yearMonthItems[data.yearMonthItems.length - 1].monthKey : data.currentMonthKey}`,
   );
 
   let yearHasItems = false;
@@ -155,9 +157,9 @@ export function formatTextReport(data: TextReportData): string[] {
   }
 
   if (!yearHasItems) {
-    push("暂无预期扣款");
+    push("No expected payments");
   } else {
-    push(`年度合计 ${formatMoney(data.yearTotal, data.baseCurrency)}`);
+    push(`Annual total ${formatMoney(data.yearTotal, data.baseCurrency)}`);
   }
 
   if (current.length > 0) chunks.push(current);

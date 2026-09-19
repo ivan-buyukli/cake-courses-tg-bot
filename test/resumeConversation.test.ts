@@ -24,8 +24,10 @@ describe("resumeConversation text", () => {
   it("uses button-oriented prompt without asking for typed confirmation", () => {
     const prompt = buildResumePrompt(createSub());
 
-    expect(prompt).toContain("请选择按当前日期恢复，或选择日期后恢复：");
-    expect(prompt).not.toContain("发送“确认”");
+    expect(prompt).toContain(
+      "Resume with the current date, or choose a new date:",
+    );
+    expect(prompt).not.toContain("Send“Confirm”");
   });
 
   it("explains retained trial and non-renewing flags", () => {
@@ -33,8 +35,8 @@ describe("resumeConversation text", () => {
       createSub({ isTrial: true, autoRenew: false }),
     );
 
-    expect(prompt).toContain("仍标记为体验");
-    expect(prompt).toContain("仍为停止续费");
+    expect(prompt).toContain("still marked as a trial");
+    expect(prompt).toContain("still has auto-renewal disabled");
   });
 
   it("shows retained status after resume", () => {
@@ -42,6 +44,6 @@ describe("resumeConversation text", () => {
       createSub({ status: "active", isTrial: true, autoRenew: false }),
     );
 
-    expect(message).toContain("保留状态：体验、停止续费");
+    expect(message).toContain("Unchanged status: Trial, Auto-renewal disabled");
   });
 });

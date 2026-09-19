@@ -14,7 +14,7 @@ import { parseNavigationCallbackData } from "../ui/navigation.js";
 export async function navigationCallback(ctx: BotContext): Promise<void> {
   const action = parseNavigationCallbackData(ctx.callbackQuery?.data);
   if (!action) {
-    await ctx.answerCallbackQuery("按钮数据无效。");
+    await ctx.answerCallbackQuery("Invalid button data.");
     return;
   }
 

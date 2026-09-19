@@ -27,61 +27,61 @@ export function parseNavigationCallbackData(
 
 export function emptySubscriptionsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("➕ 添加订阅", "nav:add")
+    .text("➕ Add subscription", "nav:add")
     .primary()
     .row()
-    .text("🏠 返回菜单", "nav:menu");
+    .text("🏠 Back to menu", "nav:menu");
 }
 
 export function emptyRemindersKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("📋 管理订阅", "nav:list")
+    .text("📋 Manage subscriptions", "nav:list")
     .primary()
-    .text("⚙️ 提醒设置", "nav:settings");
+    .text("⚙️ Reminder settings", "nav:settings");
 }
 
 export function postAddKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("📋 管理订阅", "nav:list")
+    .text("📋 Manage subscriptions", "nav:list")
     .primary()
-    .text("➕ 再添加一个", "nav:add")
+    .text("➕ Add another", "nav:add")
     .row()
-    .text("📊 查看报告", "nav:report");
+    .text("📊 View report", "nav:report");
 }
 
 export function reportActionsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("📄 文字明细", "nav:report_text")
+    .text("📄 Text details", "nav:report_text")
     .primary()
-    .text("⚙️ 报告设置", "nav:settings");
+    .text("⚙️ Report settings", "nav:settings");
 }
 
 export function helpActionsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("➕ 添加订阅", "nav:add")
+    .text("➕ Add subscription", "nav:add")
     .primary()
-    .text("📋 管理订阅", "nav:list")
+    .text("📋 Manage subscriptions", "nav:list")
     .row()
-    .text("📊 支出报告", "nav:report")
-    .text("⚙️ 设置", "nav:settings");
+    .text("📊 Spending report", "nav:report")
+    .text("⚙️ Settings", "nav:settings");
 }
 
 export function privacyActionsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("📦 导出数据", "settings:export")
+    .text("📦 Export data", "settings:export")
     .primary()
     .row()
-    .text("🗑 永久删除数据", "settings:delete")
+    .text("🗑 Permanently delete data", "settings:delete")
     .danger()
     .row()
-    .text("← 返回设置", "settings:back");
+    .text("← Back to settings", "settings:back");
 }
 
 export function expiredPanelKeyboard(
   restart: "add" | "list" | "settings",
 ): InlineKeyboard {
   return new InlineKeyboard()
-    .text("重新开始", `nav:${restart}`)
+    .text("Start again", `nav:${restart}`)
     .primary()
-    .text("🏠 返回菜单", "nav:menu");
+    .text("🏠 Back to menu", "nav:menu");
 }

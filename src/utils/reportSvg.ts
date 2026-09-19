@@ -33,7 +33,7 @@ export function buildReportOverviewSvg(
   const excludedNote = overviewExcludedNote(report);
   const missingNote =
     missingCurrencies.length > 0
-      ? `总额未计入缺失汇率：${missingCurrencies.join("、")}`
+      ? `Excluded due to missing exchange rates: ${missingCurrencies.join(", ")}`
       : "";
 
   const monthDistribution = report.yearlyProjection.monthDistribution ?? [];
@@ -52,7 +52,7 @@ export function buildReportOverviewSvg(
     h(
       "div",
       {
-        lang: "zh-CN",
+        lang: "en",
         style: {
           width: "100%",
           height: "100%",
@@ -67,30 +67,34 @@ export function buildReportOverviewSvg(
       h(
         "div",
         { style: { display: "flex", flexDirection: "column" } },
-        h("div", { style: { fontSize: 34, fontWeight: 400 } }, "订阅支出总览"),
+        h(
+          "div",
+          { style: { fontSize: 34, fontWeight: 400 } },
+          "Subscription spending overview",
+        ),
         h(
           "div",
           { style: { marginTop: 4, fontSize: 15, color: COLORS.muted } },
-          `生成于 ${referenceDate} · 基准货币 ${report.baseCurrency} · 当前订阅 ${report.subscriptionCount} 个`,
+          `Generated on ${referenceDate} · Base currency ${report.baseCurrency} · Current subscriptions ${report.subscriptionCount}`,
         ),
       ),
       h(
         "div",
         { style: { display: "flex", gap: 16, marginTop: 12 } },
         overviewMetricCard(
-          "未来 30 天扣款",
+          "Next 30 days",
           formatMoney(report.currentMonthDue.totalBase, report.baseCurrency),
-          `${report.currentMonthDue.convertedCount} 个订阅已换算`,
+          `Subscriptions converted: ${report.currentMonthDue.convertedCount}`,
         ),
         overviewMetricCard(
-          "月均订阅成本",
+          "Monthly subscription cost",
           formatMoney(report.currentMonthly.totalBase, report.baseCurrency),
-          "活跃自动续费订阅折算",
+          "Active auto-renewing subscriptions",
         ),
         overviewMetricCard(
-          "未来 12 个月预期",
+          "Next 12 months",
           formatMoney(report.yearlyProjection.totalBase, report.baseCurrency),
-          "按真实扣款日期预测",
+          "Based on actual billing dates",
         ),
       ),
       h(
@@ -100,8 +104,8 @@ export function buildReportOverviewSvg(
           "div",
           { style: { display: "flex", flexDirection: "column", width: 560 } },
           overviewSectionTitle(
-            "未来 30 天扣款明细",
-            `${upcomingItems.length} 笔`,
+            "Upcoming payments",
+            `Payments: ${upcomingItems.length}`,
           ),
           overviewPanel(
             overviewUpcomingNode(upcomingItems, report.baseCurrency),
@@ -112,9 +116,9 @@ export function buildReportOverviewSvg(
           "div",
           { style: { display: "flex", flexDirection: "column", width: 540 } },
           overviewSectionTitle(
-            "扣款日分布 · 未来 30 天",
+            "Payments by date",
             peakDue
-              ? `单日最高 ${chartMoney(peakDue.actualTotal, report.baseCurrency)} · ${axisDateLabel(referenceDate, peakDue.day)}`
+              ? `Peak ${chartMoney(peakDue.actualTotal, report.baseCurrency)} · ${axisDateLabel(referenceDate, peakDue.day)}`
               : undefined,
           ),
           overviewPanel(
@@ -127,9 +131,9 @@ export function buildReportOverviewSvg(
         "div",
         { style: { display: "flex", flexDirection: "column", marginTop: 12 } },
         overviewSectionTitle(
-          "年度月度趋势",
+          "Monthly trend",
           monthDistribution.length > 0
-            ? `月均 ${formatMoney(monthlyAverage, report.baseCurrency)}`
+            ? `Monthly average ${formatMoney(monthlyAverage, report.baseCurrency)}`
             : undefined,
         ),
         overviewPanel(overviewYearChartNode(report.yearlyProjection), {
@@ -326,7 +330,7 @@ function overviewUpcomingNode(
   baseCurrency: string,
 ): SatoriElement {
   if (items.length === 0) {
-    return overviewChartPlaceholder("未来 30 天暂无扣款");
+    return overviewChartPlaceholder("No payments in the next 30 days");
   }
 
   const maxRows = 9;
@@ -352,7 +356,7 @@ function overviewUpcomingNode(
             fontSize: 12,
           },
         },
-        `另有 ${items.length - shown.length} 笔 · /report_text 查看全部`,
+        `More: ${items.length - shown.length} payments · /report_text View all`,
       ),
     );
   }
@@ -438,7 +442,7 @@ function overviewDueChartNode(
   const data = report.dayDistribution;
   const nonZero = data.filter((item) => item.actualTotal > 0);
   if (nonZero.length === 0) {
-    return overviewChartPlaceholder("未来 30 天暂无扣款");
+    return overviewChartPlaceholder("No payments in the next 30 days");
   }
 
   const axisHeight = 18;
@@ -557,7 +561,7 @@ function overviewYearChartNode(report: ReportData): SatoriElement {
   const innerHeight = 140 - OVERVIEW_PANEL_PADDING * 2;
   const data = report.monthDistribution ?? [];
   if (data.length === 0 || data.every((item) => item.actualTotal === 0)) {
-    return overviewChartPlaceholder("暂无年度预期扣款");
+    return overviewChartPlaceholder("No expected annual payments");
   }
 
   const axisHeight = 16;
@@ -695,15 +699,18 @@ function axisDateLabel(referenceDate: string, offset: number): string {
 function shortBillingDate(date: string | undefined): string {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date)
     ? date.slice(5).replace("-", "/")
-    : "未定";
+    : "Not set";
 }
 
 function monthAxisLabel(monthKey: string, index: number): string {
   const month = Number(monthKey.slice(5, 7));
   if (index === 0 || month === 1) {
-    return `${monthKey.slice(2, 4)}年${month}月`;
+    return monthKey.slice(2);
   }
-  return `${month}月`;
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${monthKey}-01T00:00:00Z`));
 }
 
 function currencySymbol(currency: string): string {
@@ -739,13 +746,14 @@ function compactChartMoney(amount: number, currency: string): string {
 function overviewExcludedNote(report: SplitReportData): string {
   const excluded = report.currentMonthly.excluded;
   const notes: string[] = [];
-  if (excluded.trial > 0) notes.push(`体验 ${excluded.trial}`);
-  if (excluded.nonRenewing > 0) notes.push(`已停续费 ${excluded.nonRenewing}`);
-  if (excluded.noPrice > 0) notes.push(`无价格 ${excluded.noPrice}`);
-  if (excluded.noCurrency > 0) notes.push(`无币种 ${excluded.noCurrency}`);
+  if (excluded.trial > 0) notes.push(`Trial ${excluded.trial}`);
+  if (excluded.nonRenewing > 0)
+    notes.push(`Auto-renewal off ${excluded.nonRenewing}`);
+  if (excluded.noPrice > 0) notes.push(`No price ${excluded.noPrice}`);
+  if (excluded.noCurrency > 0) notes.push(`No currency ${excluded.noCurrency}`);
   if (excluded.customCycle > 0)
-    notes.push(`自定义周期 ${excluded.customCycle}`);
-  return notes.length > 0 ? `未计入金额：${notes.join("，")}` : "";
+    notes.push(`Custom cycle ${excluded.customCycle}`);
+  return notes.length > 0 ? `Excluded from totals: ${notes.join(", ")}` : "";
 }
 
 function truncateText(value: string, maxLength: number): string {

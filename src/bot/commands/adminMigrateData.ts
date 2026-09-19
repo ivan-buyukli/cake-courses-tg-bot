@@ -267,14 +267,14 @@ export async function adminMigrateDataCommand(ctx: BotContext): Promise<void> {
 
   await ctx.reply(
     [
-      "历史数据迁移完成。",
-      `用户资料：${result.profilesMigrated}`,
-      `订阅：${result.subscriptionsMigrated}`,
-      `提醒条目：${result.reminderEntriesMigrated}`,
-      `订阅索引修复：${result.subscriptionIndexesRebuilt}`,
-      `提醒索引修复：${result.reminderEntriesRebuilt}`,
-      `旧提醒键删除：${result.legacyReminderKeysDeleted}`,
-      `跳过：${result.skipped}`,
+      "Historical data migration complete.",
+      `User profiles: ${result.profilesMigrated}`,
+      `Subscription: ${result.subscriptionsMigrated}`,
+      `Reminder entries: ${result.reminderEntriesMigrated}`,
+      `Subscription indexes rebuilt: ${result.subscriptionIndexesRebuilt}`,
+      `Reminder indexes rebuilt: ${result.reminderEntriesRebuilt}`,
+      `Legacy reminder keys deleted: ${result.legacyReminderKeysDeleted}`,
+      `Skipped: ${result.skipped}`,
     ].join("\n"),
   );
   logger.info("Historical data migration complete", {

@@ -26,9 +26,9 @@ export function subscriptionPrice(sub: Subscription): string {
 
 export function subscriptionTag(sub: Subscription): string {
   return [
-    sub.status === "paused" ? "暂停" : "",
-    isTrialSubscription(sub) ? "体验" : "",
-    !isAutoRenewing(sub) ? "已停续费" : "",
+    sub.status === "paused" ? "Paused" : "",
+    isTrialSubscription(sub) ? "Trial" : "",
+    !isAutoRenewing(sub) ? "Auto-renewal off" : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -42,12 +42,12 @@ export function listPresentation(
   const page = Math.max(0, Math.min(requestedPage, totalPages - 1));
   const start = page * LIST_PAGE_SIZE;
   const items = subs.slice(start, start + LIST_PAGE_SIZE);
-  const title = `你的订阅 · ${subs.length} 项 · 第 ${page + 1}/${totalPages} 页`;
+  const title = `Your subscriptions · ${subs.length} items · Page ${page + 1}/${totalPages}`;
   const keyboard = new InlineKeyboard();
-  if (page > 0) keyboard.text("← 上一页", `list:page:${page - 1}`);
-  if (page < totalPages - 1) keyboard.text("下一页 →", `list:page:${page + 1}`);
+  if (page > 0) keyboard.text("← Previous", `list:page:${page - 1}`);
+  if (page < totalPages - 1) keyboard.text("Next →", `list:page:${page + 1}`);
   const date = (sub: Subscription) =>
-    sub.status === "paused" ? "已暂停" : sub.nextBillingDate;
+    sub.status === "paused" ? "Paused" : sub.nextBillingDate;
   return {
     richMessage: {
       blocks: [
@@ -58,9 +58,9 @@ export function listPresentation(
           is_bordered: true,
           cells: [
             [
-              richTableCell("订阅", { header: true }),
-              richTableCell("金额", { header: true, align: "right" }),
-              richTableCell("下次日期", { header: true }),
+              richTableCell("Subscription", { header: true }),
+              richTableCell("Amount", { header: true, align: "right" }),
+              richTableCell("Next date", { header: true }),
             ],
             ...items.map((sub) => [
               richTableCell([
@@ -92,19 +92,19 @@ export function detailPresentation(
   page = 0,
 ): MessagePresentation {
   const fields = [
-    ["订阅", sub.name],
+    ["Subscription", sub.name],
     [
-      "金额 / 周期",
+      "Amount / Cycle",
       `${subscriptionPrice(sub)} · ${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
     ],
     [formatBillingDateLabel(sub), sub.nextBillingDate],
     [
-      "状态 / 类型",
+      "Status / Type",
       `${formatStatus(sub.status)} · ${formatSubscriptionType(sub)}`,
     ],
-    ["自动续费", formatAutoRenew(sub)],
-    ["提醒", formatReminderPolicy(sub)],
-    ...(sub.category ? [["分类", sub.category]] : []),
+    ["Auto-renewal", formatAutoRenew(sub)],
+    ["Reminder", formatReminderPolicy(sub)],
+    ...(sub.category ? [["Category", sub.category]] : []),
   ];
   return {
     richMessage: {
@@ -122,7 +122,7 @@ export function detailPresentation(
           ? [
               {
                 type: "details" as const,
-                summary: "备注",
+                summary: "Notes",
                 blocks: [{ type: "paragraph" as const, text: sub.note }],
               },
             ]

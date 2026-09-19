@@ -35,7 +35,7 @@ src/
 ## Features
 
 - Add subscriptions interactively or with one-line commands.
-- Track fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`), manual `custom` cycles, and interval cycles such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, and `每30天`.
+- Track fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`), manual `custom` cycles, and interval cycles such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, and `every 4 weeks`.
 - Mark subscriptions as trial or non-auto-renewing so reports and reminder wording match the real billing state.
 - Pause and resume subscriptions from the inline list manager. Paused subscriptions are excluded from reminders, date advancement, and spending reports.
 - Manage subscriptions from the paginated `/list` panel (`/list_full` remains
@@ -197,7 +197,7 @@ Missing currencies are shown where possible but are not included in converted de
 ## Billing Cycles
 
 Subscriptions support fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`),
-`custom` cycles that do not auto-advance, and interval cycles in days, weeks, months, or years. One-line commands accept examples such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, `every 4 weeks`, `every 6 months`, `每30天`, `每4周`, `每6个月`, and `每2年`.
+`custom` cycles that do not auto-advance, and interval cycles in days, weeks, months, or years. One-line commands accept examples such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, `every 4 weeks`, `every 6 months`, and `every 2 years`.
 
 ### Generating ENCRYPTION_KEY
 

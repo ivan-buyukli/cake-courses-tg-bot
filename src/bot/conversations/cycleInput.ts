@@ -30,36 +30,36 @@ export function cycleKeyboard(
   cancelData = "cycle:cancel",
 ): InlineKeyboard {
   return new InlineKeyboard()
-    .text("每周", callbackData("weekly"))
-    .text("每月", callbackData("monthly"))
+    .text("Weekly", callbackData("weekly"))
+    .text("Monthly", callbackData("monthly"))
     .row()
-    .text("每季度", callbackData("quarterly"))
-    .text("每年", callbackData("yearly"))
+    .text("Quarterly", callbackData("quarterly"))
+    .text("Yearly", callbackData("yearly"))
     .row()
-    .text("自定义", callbackData("custom"))
-    .text("高级间隔", callbackData("interval"))
+    .text("Custom", callbackData("custom"))
+    .text("Advanced interval", callbackData("interval"))
     .row()
-    .text("取消", cancelData);
+    .text("Cancel", cancelData);
 }
 
 function intervalKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("30 天", "cycleint:preset:30d")
-    .text("4 周", "cycleint:preset:4w")
+    .text("30 days", "cycleint:preset:30d")
+    .text("4 weeks", "cycleint:preset:4w")
     .row()
-    .text("6 个月", "cycleint:preset:6m")
-    .text("1 年", "cycleint:preset:1y")
+    .text("6 months", "cycleint:preset:6m")
+    .text("1 year", "cycleint:preset:1y")
     .row()
-    .text("其他", "cycleint:other")
+    .text("Other", "cycleint:other")
     .row()
-    .text("返回周期选择", "cycleint:back")
-    .text("取消", "cycleint:cancel");
+    .text("Back to billing cycles", "cycleint:back")
+    .text("Cancel", "cycleint:cancel");
 }
 
 function intervalTextKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("返回高级间隔", "cycleint:back")
-    .text("取消", "cycleint:cancel");
+    .text("Back to intervals", "cycleint:back")
+    .text("Cancel", "cycleint:cancel");
 }
 
 function parseIntervalSelection(value: string): CycleSelection | null {
@@ -77,7 +77,7 @@ export async function collectCycleInput(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   {
-    prompt = "请选择扣款周期：",
+    prompt = "Choose a billing cycle: ",
     callbackPattern,
     callbackData,
     parseCycle,
@@ -99,10 +99,12 @@ export async function collectCycleInput(
     const cycleCtx = await conversation.wait();
     if (cycleCtx.message?.text) {
       if (isCancelInput(cycleCtx.message.text)) {
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         return null;
       }
-      await ctx.reply("请点击按钮选择扣款周期，或发送 /cancel 退出。");
+      await ctx.reply(
+        "Choose a billing cycle using the buttons, or send /cancel to exit.",
+      );
       continue;
     }
     const cycleCallbackData = cycleCtx.callbackQuery?.data;
@@ -116,7 +118,7 @@ export async function collectCycleInput(
       } catch {
         // The callback message may already be gone.
       }
-      await ctx.reply("已取消。");
+      await ctx.reply("Cancelled.");
       return null;
     }
     const selectedCycle = parseCycle(cycleCallbackData);
@@ -136,16 +138,21 @@ export async function collectCycleInput(
     }
 
     while (true) {
-      await ctx.reply("请选择高级间隔，或点“其他”输入自定义间隔。", {
-        reply_markup: intervalKeyboard(),
-      });
+      await ctx.reply(
+        "Choose an interval, or select “Other” to enter a custom interval.",
+        {
+          reply_markup: intervalKeyboard(),
+        },
+      );
       const intervalChoiceCtx = await conversation.wait();
       if (intervalChoiceCtx.message?.text) {
         if (isCancelInput(intervalChoiceCtx.message.text)) {
-          await ctx.reply("已取消。");
+          await ctx.reply("Cancelled.");
           return null;
         }
-        await ctx.reply("请点击按钮选择高级间隔，或发送 /cancel 退出。");
+        await ctx.reply(
+          "Choose an interval using the buttons, or send /cancel to exit.",
+        );
         continue;
       }
       const intervalCallbackData = intervalChoiceCtx.callbackQuery?.data;
@@ -156,7 +163,9 @@ export async function collectCycleInput(
         parseCycleIntervalCallbackData(intervalCallbackData);
 
       if (!parsedInterval) {
-        await intervalChoiceCtx.answerCallbackQuery("无效的间隔选择。");
+        await intervalChoiceCtx.answerCallbackQuery(
+          "Invalid interval selection.",
+        );
         continue;
       }
 
@@ -168,7 +177,7 @@ export async function collectCycleInput(
       }
 
       if (parsedInterval.action === "cancel") {
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         return null;
       }
 
@@ -179,14 +188,14 @@ export async function collectCycleInput(
       if (parsedInterval.action === "preset") {
         const selection = parseIntervalSelection(parsedInterval.value);
         if (!selection) {
-          await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
+          await ctx.reply("Enter an interval, such as 30d, 4w, 6m, or 2y.");
           continue;
         }
         return selection;
       }
 
       await ctx.reply(
-        "请输入间隔，例如 every 30 days、every 4 weeks、6m、2y、30d、4w、每30天、每4周、每6个月、每2年。",
+        "Enter an interval, such as every 30 days, every 4 weeks, 6m, 2y, 30d, or 4w.",
         { reply_markup: intervalTextKeyboard() },
       );
 
@@ -194,19 +203,19 @@ export async function collectCycleInput(
       if (intervalCtx.message?.text) {
         const intervalText = intervalCtx.message.text;
         if (isCancelInput(intervalText)) {
-          await ctx.reply("已取消。");
+          await ctx.reply("Cancelled.");
           return null;
         }
         try {
           const selection = parseIntervalSelection(intervalText);
           if (!selection) {
-            await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
+            await ctx.reply("Enter an interval, such as 30d, 4w, 6m, or 2y.");
             continue;
           }
           return selection;
         } catch (err) {
           if (err instanceof ValidationError) {
-            await ctx.reply(err.message + "\n请在当前步骤重新输入。");
+            await ctx.reply(err.message + "\nPlease try again at this step.");
             continue;
           }
           throw err;
@@ -218,13 +227,13 @@ export async function collectCycleInput(
         intervalCtx.callbackQuery.data,
       );
       if (!parsedTextAction) {
-        await intervalCtx.answerCallbackQuery("无效的间隔选择。");
+        await intervalCtx.answerCallbackQuery("Invalid interval selection.");
         continue;
       }
 
       if (parsedTextAction.action === "cancel") {
         await intervalCtx.answerCallbackQuery();
-        await ctx.reply("已取消。");
+        await ctx.reply("Cancelled.");
         return null;
       }
 
@@ -233,7 +242,7 @@ export async function collectCycleInput(
         continue;
       }
 
-      await intervalCtx.answerCallbackQuery("请发送自定义间隔。");
+      await intervalCtx.answerCallbackQuery("Enter a custom interval.");
     }
   }
 }

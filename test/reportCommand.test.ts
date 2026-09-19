@@ -128,7 +128,7 @@ describe("reportCommand", () => {
     await reportCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "你还没有添加任何订阅。",
+      "You have not added any subscriptions yet.",
       expect.objectContaining({ reply_markup: expect.anything() }),
     );
     expect(renderReportOverviewPngMock).not.toHaveBeenCalled();
@@ -149,7 +149,7 @@ describe("reportCommand", () => {
     expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
       expect.any(InputFile),
       expect.objectContaining({
-        caption: "订阅支出总览",
+        caption: "Subscription spending overview",
         reply_markup: expect.anything(),
       }),
     );
@@ -186,10 +186,10 @@ describe("reportCommand", () => {
     expect(ctx.replyWithPhoto).not.toHaveBeenCalled();
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(text).toContain("订阅支出报告");
-    expect(text).toContain("月均订阅成本");
-    expect(text).toContain("未来30天支出");
-    expect(text).toContain("年度预期支出");
+    expect(text).toContain("Subscription spending report");
+    expect(text).toContain("Monthly subscription cost");
+    expect(text).toContain("Next 30 days spending");
+    expect(text).toContain("Expected annual spending");
     expect(text).not.toContain("Very Private Name");
     const warnPayload = JSON.parse(String(warnSpy.mock.calls[0][0]));
     expect(warnPayload.errorMessage).toBe("render failed for [redacted]");
@@ -210,7 +210,7 @@ describe("reportCommand", () => {
     expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(1);
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     expect((ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain(
-      "订阅支出报告",
+      "Subscription spending report",
     );
   });
 
@@ -220,7 +220,9 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Unable to identify your account. Please try again later.",
+    );
     expect(renderReportOverviewPngMock).not.toHaveBeenCalled();
   });
 });

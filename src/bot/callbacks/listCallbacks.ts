@@ -25,7 +25,8 @@ type Logger = ReturnType<typeof createLogger>;
 const answeredCallbacks = new WeakSet<object>();
 
 const PANEL_MAX_AGE_SECONDS = 3600;
-const EXPIRED_PANEL_MESSAGE = "这个管理面板已过期，请重新打开。";
+const EXPIRED_PANEL_MESSAGE =
+  "This management panel has expired. Please open it again.";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
@@ -62,7 +63,7 @@ async function handleExpiredPanel(
   await safeAnswerCallbackQuery(ctx, EXPIRED_PANEL_MESSAGE);
   await safeEditMessageText(
     ctx,
-    "⏳ 这个管理面板已过期。\n\n为避免误操作，请重新加载最新订阅数据。",
+    "⏳ This management panel has expired.\n\nReload your subscriptions before making further changes.",
     { reply_markup: expiredPanelKeyboard("list") },
   );
 }
@@ -119,7 +120,7 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -130,7 +131,7 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "page") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -143,9 +144,13 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
 
     if (subs.length === 0) {
       await safeAnswerCallbackQuery(ctx);
-      await safeEditMessageText(ctx, "你还没有添加任何订阅。", {
-        reply_markup: emptySubscriptionsKeyboard(),
-      });
+      await safeEditMessageText(
+        ctx,
+        "You have not added any subscriptions yet.",
+        {
+          reply_markup: emptySubscriptionsKeyboard(),
+        },
+      );
       return;
     }
 
@@ -157,7 +162,10 @@ export async function listPageCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listPageCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -166,7 +174,7 @@ export async function listSelectCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -177,7 +185,7 @@ export async function listSelectCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "select") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -190,8 +198,11 @@ export async function listSelectCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
-      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
+      await safeEditMessageText(
+        ctx,
+        "Subscription not found, or it has been deleted.",
+      );
       return;
     }
 
@@ -205,7 +216,10 @@ export async function listSelectCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listSelectCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -214,7 +228,7 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -225,7 +239,7 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "detail") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -238,16 +252,20 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       const subs = await fetchSortedSubscriptions(
         ctx.userKey,
         ctx.env.SUBSCRIPTION_KV,
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。", {
-          reply_markup: emptySubscriptionsKeyboard(),
-        });
+        await safeEditMessageText(
+          ctx,
+          "Subscription not found, or it has been deleted.",
+          {
+            reply_markup: emptySubscriptionsKeyboard(),
+          },
+        );
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
@@ -264,7 +282,10 @@ export async function listDetailCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listDetailCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -273,7 +294,7 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -284,7 +305,7 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "back") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -297,9 +318,13 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
 
     if (subs.length === 0) {
       await safeAnswerCallbackQuery(ctx);
-      await safeEditMessageText(ctx, "你还没有添加任何订阅。", {
-        reply_markup: emptySubscriptionsKeyboard(),
-      });
+      await safeEditMessageText(
+        ctx,
+        "You have not added any subscriptions yet.",
+        {
+          reply_markup: emptySubscriptionsKeyboard(),
+        },
+      );
       return;
     }
 
@@ -311,7 +336,10 @@ export async function listBackCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listBackCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -320,7 +348,7 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -331,7 +359,7 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "edit") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -344,16 +372,20 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       const subs = await fetchSortedSubscriptions(
         ctx.userKey,
         ctx.env.SUBSCRIPTION_KV,
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。", {
-          reply_markup: emptySubscriptionsKeyboard(),
-        });
+        await safeEditMessageText(
+          ctx,
+          "Subscription not found, or it has been deleted.",
+          {
+            reply_markup: emptySubscriptionsKeyboard(),
+          },
+        );
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
@@ -361,9 +393,13 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
     }
 
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, `要编辑"${sub.name}"的哪一项？`, {
-      reply_markup: buildEditFieldKeyboard(parsed.subId, parsed.page),
-    });
+    await safeEditMessageText(
+      ctx,
+      `Edit fields for "${sub.name}": choose a field.`,
+      {
+        reply_markup: buildEditFieldKeyboard(parsed.subId, parsed.page),
+      },
+    );
 
     logger.info("Edit menu opened via list callback", {
       subId: parsed.subId,
@@ -372,7 +408,10 @@ export async function listEditCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listEditCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -381,7 +420,7 @@ export async function listPauseCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -392,10 +431,10 @@ export async function listPauseCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "pause") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
-    await safeAnswerCallbackQuery(ctx, "正在更新…");
+    await safeAnswerCallbackQuery(ctx, "Updating…");
 
     const service = createService(ctx);
     const sub = await service.pause(
@@ -405,21 +444,24 @@ export async function listPauseCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       const subs = await fetchSortedSubscriptions(
         ctx.userKey,
         ctx.env.SUBSCRIPTION_KV,
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+        await safeEditMessageText(
+          ctx,
+          "Subscription not found, or it has been deleted.",
+        );
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
       return;
     }
 
-    await safeAnswerCallbackQuery(ctx, "已暂停。");
+    await safeAnswerCallbackQuery(ctx, "Paused.");
     await showDetail(ctx, sub, parsed.page);
 
     logger.info("Subscription paused via list callback", {
@@ -429,7 +471,10 @@ export async function listPauseCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listPauseCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -438,7 +483,7 @@ export async function listResumeCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -449,7 +494,7 @@ export async function listResumeCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "resume") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
 
@@ -463,7 +508,10 @@ export async function listResumeCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listResumeCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -472,7 +520,7 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -483,7 +531,7 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "del") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -496,14 +544,17 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       const subs = await fetchSortedSubscriptions(
         ctx.userKey,
         ctx.env.SUBSCRIPTION_KV,
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+        await safeEditMessageText(
+          ctx,
+          "Subscription not found, or it has been deleted.",
+        );
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
@@ -511,7 +562,7 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
     }
 
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, `确认删除"${sub.name}"吗？`, {
+    await safeEditMessageText(ctx, `Delete "${sub.name}"?`, {
       reply_markup: buildDeleteConfirmKeyboard(parsed.subId, parsed.page),
     });
 
@@ -522,7 +573,10 @@ export async function listDelCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listDelCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -533,7 +587,7 @@ export async function listDeleteConfirmCallback(
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -544,10 +598,10 @@ export async function listDeleteConfirmCallback(
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "delok") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
-    await safeAnswerCallbackQuery(ctx, "正在删除…");
+    await safeAnswerCallbackQuery(ctx, "Deleting…");
 
     const service = createService(ctx);
     const sub = await service.get(
@@ -557,7 +611,7 @@ export async function listDeleteConfirmCallback(
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "已经删除。");
+      await safeAnswerCallbackQuery(ctx, "Already deleted.");
       const subs = await fetchSortedSubscriptions(
         ctx.userKey,
         ctx.env.SUBSCRIPTION_KV,
@@ -566,7 +620,7 @@ export async function listDeleteConfirmCallback(
       if (subs.length === 0) {
         await safeEditMessageText(
           ctx,
-          "没有找到这个订阅，或它已被删除。\n发送 /add 添加第一个订阅。",
+          "Subscription not found, or it has been deleted.\nSend /add to add your first subscription.",
         );
       } else {
         await showListPage(ctx, subs, parsed.page);
@@ -586,12 +640,12 @@ export async function listDeleteConfirmCallback(
       ctx.env.ENCRYPTION_KEY,
     );
 
-    await safeAnswerCallbackQuery(ctx, "已删除。");
+    await safeAnswerCallbackQuery(ctx, " has been deleted.");
 
     if (subs.length === 0) {
       await safeEditMessageText(
         ctx,
-        `"${sub.name}"已删除。\n\n你还没有添加任何订阅。`,
+        `"${sub.name}" has been deleted.\n\nYou have not added any subscriptions yet.`,
         { reply_markup: emptySubscriptionsKeyboard() },
       );
       return;
@@ -607,7 +661,10 @@ export async function listDeleteConfirmCallback(
     logger.error("Error in listDeleteConfirmCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -616,7 +673,7 @@ export async function listDeleteCancelCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -627,7 +684,7 @@ export async function listDeleteCancelCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "delno") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -640,21 +697,24 @@ export async function listDeleteCancelCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       const subs = await fetchSortedSubscriptions(
         ctx.userKey,
         ctx.env.SUBSCRIPTION_KV,
         ctx.env.ENCRYPTION_KEY,
       );
       if (subs.length === 0) {
-        await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+        await safeEditMessageText(
+          ctx,
+          "Subscription not found, or it has been deleted.",
+        );
       } else {
         await showListPage(ctx, subs, parsed.page);
       }
       return;
     }
 
-    await safeAnswerCallbackQuery(ctx, "已取消。");
+    await safeAnswerCallbackQuery(ctx, "Cancelled.");
     await showDetail(ctx, sub, parsed.page);
 
     logger.info("Delete cancelled via list callback");
@@ -662,7 +722,10 @@ export async function listDeleteCancelCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listDeleteCancelCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 
@@ -671,7 +734,7 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeAnswerCallbackQuery(ctx, "Unable to identify your account.");
       return;
     }
 
@@ -682,7 +745,7 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
 
     const parsed = parseListCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed || parsed.action !== "editField") {
-      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      await safeAnswerCallbackQuery(ctx, "Invalid button data.");
       return;
     }
     await safeAnswerCallbackQuery(ctx);
@@ -694,14 +757,17 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
       const sub = await service.get(ctx.userKey, subId, ctx.env.ENCRYPTION_KEY);
 
       if (!sub) {
-        await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+        await safeAnswerCallbackQuery(ctx, "Subscription not found.");
         const subs = await fetchSortedSubscriptions(
           ctx.userKey,
           ctx.env.SUBSCRIPTION_KV,
           ctx.env.ENCRYPTION_KEY,
         );
         if (subs.length === 0) {
-          await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+          await safeEditMessageText(
+            ctx,
+            "Subscription not found, or it has been deleted.",
+          );
         } else {
           await showListPage(ctx, subs, page);
         }
@@ -726,11 +792,11 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
         ctx,
         field === "trial"
           ? updated.isTrial
-            ? "已标记为体验。"
-            : "已取消体验标记。"
+            ? "Marked as a trial."
+            : "Trial status removed."
           : updated.autoRenew
-            ? "已开启自动续费。"
-            : "已关闭自动续费。",
+            ? "Auto-renewal enabled."
+            : "Auto-renewal disabled.",
       );
       await showDetail(ctx, updated, page);
 
@@ -760,7 +826,10 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in listEditFieldCallback", {
       error: error instanceof Error ? error.name : "UnknownError",
     });
-    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+    await safeAnswerCallbackQuery(
+      ctx,
+      "Operation failed. Please try again later.",
+    );
   }
 }
 

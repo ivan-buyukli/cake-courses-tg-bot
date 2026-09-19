@@ -5,7 +5,7 @@ import { parseAddDateCallbackData } from "../../utils/callbackParser.js";
 import { isCancelInput } from "../../utils/conversationInput.js";
 import { parseFlexibleDate } from "../../utils/parseDate.js";
 
-const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function validateDateInput(dateStr: string): {
   date?: string;
@@ -45,11 +45,11 @@ function formatDateValue(year: number, month: number, day: number): string {
 export function dateKeyboard(month: string): InlineKeyboard {
   const [year, monthNumber] = month.split("-").map(Number);
   const keyboard = new InlineKeyboard()
-    .text("« 上一年", `adddate:month:${addMonthsToMonth(month, -12)}`)
-    .text("‹ 上月", `adddate:month:${addMonthsToMonth(month, -1)}`)
-    .text(`${year}年${monthNumber}月`, "adddate:noop")
-    .text("下月 ›", `adddate:month:${addMonthsToMonth(month, 1)}`)
-    .text("下一年 »", `adddate:month:${addMonthsToMonth(month, 12)}`)
+    .text("« Previous year", `adddate:month:${addMonthsToMonth(month, -12)}`)
+    .text("‹ Previous month", `adddate:month:${addMonthsToMonth(month, -1)}`)
+    .text(`${year}-${String(monthNumber).padStart(2, "0")}`, "adddate:noop")
+    .text("Next month ›", `adddate:month:${addMonthsToMonth(month, 1)}`)
+    .text("Next year »", `adddate:month:${addMonthsToMonth(month, 12)}`)
     .row();
 
   for (const label of WEEKDAY_LABELS) {
@@ -79,10 +79,10 @@ export function dateKeyboard(month: string): InlineKeyboard {
   }
 
   keyboard.text(
-    "今天",
+    "Today",
     `adddate:pick:${new Date().toISOString().slice(0, 10)}`,
   );
-  keyboard.text("取消", "adddate:cancel");
+  keyboard.text("Cancel", "adddate:cancel");
   return keyboard;
 }
 
@@ -94,8 +94,8 @@ function collapsedDateKeyboard(options?: {
     keyboard.text(options.confirmButtonLabel, "adddate:confirm").row();
   }
   return keyboard
-    .text("选择日期", "adddate:show")
-    .text("取消", "adddate:cancel");
+    .text("Choose date", "adddate:show")
+    .text("Cancel", "adddate:cancel");
 }
 
 async function safeDeleteMessage(ctx: BaseBotContext): Promise<void> {
@@ -136,7 +136,7 @@ export async function collectDateInput(
         } catch {
           // The message may already be gone.
         }
-        await ctx.reply(options?.cancelMessage ?? "已取消。");
+        await ctx.reply(options?.cancelMessage ?? "Cancelled.");
         return null;
       }
       const trimmed = text.trim().toLowerCase();
@@ -154,7 +154,8 @@ export async function collectDateInput(
       const result = validateDateInput(text);
       if (result.error) {
         await ctx.reply(
-          result.error + "\n请重新输入日期，或点击「选择日期」使用日历选择：",
+          result.error +
+            "\nEnter the date again, or select “Choose date” to open the calendar:",
         );
         continue;
       }
@@ -171,7 +172,7 @@ export async function collectDateInput(
     const parsedDate = parseAddDateCallbackData(updateCtx.callbackQuery.data);
 
     if (!parsedDate) {
-      await updateCtx.answerCallbackQuery("无效的日期选择。");
+      await updateCtx.answerCallbackQuery("Invalid date selection.");
       continue;
     }
 
@@ -195,7 +196,7 @@ export async function collectDateInput(
     if (parsedDate.action === "cancel") {
       await updateCtx.answerCallbackQuery();
       await safeDeleteMessage(updateCtx);
-      await ctx.reply(options?.cancelMessage ?? "已取消。");
+      await ctx.reply(options?.cancelMessage ?? "Cancelled.");
       return null;
     }
 
@@ -220,8 +221,10 @@ export async function collectDateInput(
 
     const dateResult = validateDateInput(parsedDate.date);
     if (dateResult.error) {
-      await updateCtx.answerCallbackQuery("日期无效。");
-      await ctx.reply(dateResult.error + "\n请重新开始当前操作。");
+      await updateCtx.answerCallbackQuery("Invalid date.");
+      await ctx.reply(
+        dateResult.error + "\nPlease restart the current operation.",
+      );
       return null;
     }
 

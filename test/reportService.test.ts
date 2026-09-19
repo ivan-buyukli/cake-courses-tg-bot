@@ -571,10 +571,10 @@ describe("buildReportData", () => {
     );
 
     const text = formatReportText(report);
-    expect(text).toContain("订阅支出报告");
-    expect(text).toContain("月均订阅成本");
-    expect(text).toContain("未来30天支出");
-    expect(text).toContain("年度预期支出");
+    expect(text).toContain("Subscription spending report");
+    expect(text).toContain("Monthly subscription cost");
+    expect(text).toContain("Next 30 days spending");
+    expect(text).toContain("Expected annual spending");
     expect(text).not.toContain("Private Service");
   });
 
@@ -589,7 +589,7 @@ describe("buildReportData", () => {
     );
 
     const text = formatReportText(report);
-    expect(text).toContain("未计入金额：体验 1，已停续费 1");
+    expect(text).toContain("Excluded from totals: Trial 1, Auto-renewal off 1");
   });
 
   it("projects monthly subscription across 12 months", () => {
@@ -850,7 +850,7 @@ describe("buildTextReportData", () => {
   it("excludes paused and custom-cycle subscriptions", () => {
     const data = buildTextReportData(
       [
-        sub({ id: "paused", name: "Paused", status: "paused" }),
+      sub({ id: "paused", name: "Paused", status: "paused" }),
         sub({ id: "custom", name: "Custom", billingCycle: "custom" }),
         sub({
           id: "valid",
@@ -976,12 +976,12 @@ describe("formatTextReport", () => {
     const chunks = formatTextReport(data);
     const text = chunks.join("\n");
 
-    expect(text).toContain("未来30天支出 · 2026-05-17~2026-06-15");
+    expect(text).toContain("Next 30 days spending · 2026-05-17~2026-06-15");
     expect(text).toContain("Spotify");
     expect(text).toContain("Netflix");
     expect(text).toContain("2026-06-10");
     expect(text).toContain("2026-05-20");
-    expect(text).toContain("年度预期");
+    expect(text).toContain("Annual forecast");
   });
 
   it("shows converted amount arrow only for non-base currencies", () => {
@@ -1056,7 +1056,7 @@ describe("formatTextReport", () => {
     const chunks = formatTextReport(data);
     const text = chunks.join("\n");
 
-    expect(text).toContain("暂无扣款");
-    expect(text).toContain("暂无预期扣款");
+    expect(text).toContain("No upcoming payments");
+    expect(text).toContain("No expected payments");
   });
 });

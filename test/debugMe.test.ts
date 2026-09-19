@@ -24,7 +24,7 @@ describe("debugMeCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("userKey：存在");
+    expect(replyText).toContain("userKey: present");
     expect(replyText).toContain("req-123");
     expect(replyText).toContain("development");
     expect(replyText).not.toContain("some-user-key");
@@ -39,7 +39,7 @@ describe("debugMeCommand", () => {
     await debugMeCommand(ctx);
 
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("userKey：缺失");
+    expect(replyText).toContain("userKey: missing");
   });
 
   it("refuses in production", async () => {
@@ -49,7 +49,7 @@ describe("debugMeCommand", () => {
 
     await debugMeCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith("这个命令不可用。");
+    expect(ctx.reply).toHaveBeenCalledWith("This command is unavailable.");
   });
 
   it("refuses when APP_ENV is undefined", async () => {
@@ -60,6 +60,6 @@ describe("debugMeCommand", () => {
     await debugMeCommand(ctx);
 
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("userKey：缺失");
+    expect(replyText).toContain("userKey: missing");
   });
 });

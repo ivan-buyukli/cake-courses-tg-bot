@@ -7,12 +7,12 @@ export const EDITABLE_FIELDS: readonly {
   field: EditableField;
   label: string;
 }[] = [
-  { field: "name", label: "名称" },
-  { field: "price", label: "价格" },
-  { field: "currency", label: "币种" },
-  { field: "cycle", label: "周期" },
-  { field: "date", label: "下次扣款日期" },
-  { field: "reminder", label: "提醒方式" },
+  { field: "name", label: "Name" },
+  { field: "price", label: "Price" },
+  { field: "currency", label: "Currency" },
+  { field: "cycle", label: "Cycle" },
+  { field: "date", label: "Next billing date" },
+  { field: "reminder", label: "Reminder preference" },
 ];
 
 export function editableFieldsKeyboard({

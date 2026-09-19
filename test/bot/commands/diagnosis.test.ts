@@ -76,7 +76,7 @@ describe("diagnosisCommand", () => {
     await diagnosisCommand(ctx);
 
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("环境变量自检：通过");
+    expect(replyText).toContain("Environment check: passed");
     expect(replyText).toContain("[OK] ENCRYPTION_KEY");
     expect(replyText).toContain("[OK] SUBSCRIPTION_KV");
     expect(replyText).toContain("[OK] REMINDER_QUEUE");
@@ -152,7 +152,7 @@ describe("buildDiagnosisChecks", () => {
       }),
     );
 
-    expect(report).toContain("环境变量自检：通过");
+    expect(report).toContain("Environment check: passed");
     expect(report).toContain("ADMIN_USER_ID: not set");
     expect(report).toContain("APP_ENV: not set; defaults to development");
     expect(report).toContain("REMINDER_DAYS_AHEAD: not set; defaults to 3");

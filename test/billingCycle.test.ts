@@ -73,16 +73,19 @@ describe("billing cycle parsing", () => {
 
   it("formats interval labels", () => {
     expect(
+      formatBillingCycleValue("interval", { unit: "year", count: 1 }),
+    ).toBe("Every 1 year");
+    expect(
       formatBillingCycleValue("interval", { unit: "day", count: 30 }),
-    ).toBe("每 30 天");
+    ).toBe("Every 30 days");
     expect(
       formatBillingCycleValue("interval", { unit: "week", count: 4 }),
-    ).toBe("每 4 周");
+    ).toBe("Every 4 weeks");
     expect(
       formatBillingCycleValue("interval", { unit: "month", count: 6 }),
-    ).toBe("每 6 个月");
+    ).toBe("Every 6 months");
     expect(
       formatBillingCycleValue("interval", { unit: "year", count: 2 }),
-    ).toBe("每 2 年");
+    ).toBe("Every 2 years");
   });
 });

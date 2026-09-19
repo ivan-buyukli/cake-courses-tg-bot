@@ -198,7 +198,7 @@ describe("adminMigrateDataCommand", () => {
       userKey,
       {
         id: "sub-2",
-        name: "Paused",
+      name: "Paused",
         billingCycle: "monthly",
         nextBillingDate: "2026-07-01",
         status: "paused",
@@ -232,10 +232,10 @@ describe("adminMigrateDataCommand", () => {
     await adminMigrateDataCommand(ctx);
 
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(text).toContain("历史数据迁移完成");
-    expect(text).toContain("用户资料：0");
-    expect(text).toContain("订阅索引修复：0");
-    expect(text).toContain("提醒索引修复：0");
-    expect(text).toContain("跳过：0");
+    expect(text).toContain("Historical data migration complete");
+    expect(text).toContain("User profiles: 0");
+    expect(text).toContain("Subscription indexes rebuilt: 0");
+    expect(text).toContain("Reminder indexes rebuilt: 0");
+    expect(text).toContain("Skipped: 0");
   });
 });
