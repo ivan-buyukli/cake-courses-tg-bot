@@ -17,23 +17,45 @@ const queueMessage = z.union([
   z.object({ testDeliveryId: deliveryId }).strict(),
 ]);
 
+async function runScheduledStep(
+  step: string,
+  operation: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await operation();
+  } catch (error) {
+    throw new Error(`Scheduled step failed: ${step}`, { cause: error });
+  }
+}
+
 export async function runScheduled(env: CourseEnv): Promise<void> {
-  if (!env.COURSE_QUEUE) throw new Error("Delivery queue is not configured");
-  const keys = [];
+  const queue = env.COURSE_QUEUE;
+  if (!queue) throw new Error("Delivery queue is not configured");
+  const keys: string[] = [];
   for (const id of env.ADMIN_USER_IDS)
     keys.push(await hashUserId(id, env.USER_HASH_SECRET));
   const predicate = keys.length
     ? `user_key IN (${keys.map(() => "?").join(",")})`
     : "0";
-  await env.COURSE_DB.prepare(`UPDATE users SET is_admin = (${predicate})`)
-    .bind(...keys)
-    .run();
+  await runScheduledStep("sync-admins", () =>
+    env.COURSE_DB.prepare(`UPDATE users SET is_admin = (${predicate})`)
+      .bind(...keys)
+      .run(),
+  );
   const repo = new CampaignRepository(env.COURSE_DB);
-  await repo.materialize(Date.now());
-  await repo.dispatch(env.COURSE_QUEUE, Date.now());
+  await runScheduledStep("materialize-campaigns", () =>
+    repo.materialize(Date.now()),
+  );
+  await runScheduledStep("dispatch-campaigns", () =>
+    repo.dispatch(queue, Date.now()),
+  );
   const tests = new CampaignTestRepository(env.COURSE_DB);
-  await tests.materialize(Date.now());
-  await tests.dispatch(env.COURSE_QUEUE, Date.now());
+  await runScheduledStep("materialize-tests", () =>
+    tests.materialize(Date.now()),
+  );
+  await runScheduledStep("dispatch-tests", () =>
+    tests.dispatch(queue, Date.now()),
+  );
 }
 
 export async function deliverBatch(

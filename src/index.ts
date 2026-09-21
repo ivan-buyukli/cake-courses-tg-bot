@@ -40,6 +40,40 @@ async function readUpdate(request: Request): Promise<unknown> {
 }
 
 type BotFactory = typeof createBot;
+
+function errorSummary(error: unknown): {
+  category: string;
+  step?: string;
+} {
+  const message =
+    error instanceof Error && typeof error.message === "string"
+      ? error.message
+      : "";
+  const cause =
+    error instanceof Error && error.cause instanceof Error
+      ? error.cause.message
+      : "";
+  const text = `${message} ${cause}`.toLowerCase();
+  const stepMatch = /^Scheduled step failed: ([a-z-]+)$/.exec(message);
+  let category = "unknown";
+  if (text.includes("delivery queue is not configured")) {
+    category = "missing-queue-binding";
+  } else if (
+    text.includes("no such table") ||
+    text.includes("no such column")
+  ) {
+    category = "database-schema";
+  } else if (text.includes("d1_") || text.includes("database")) {
+    category = "database";
+  } else if (text.includes("queue") || text.includes("sendbatch")) {
+    category = "queue";
+  }
+  return {
+    category,
+    ...(stepMatch ? { step: stepMatch[1] } : {}),
+  };
+}
+
 export function createWorker(factory: BotFactory = createBot) {
   return {
     async fetch(request: Request, rawEnv: Bindings): Promise<Response> {
@@ -139,14 +173,16 @@ export function createWorker(factory: BotFactory = createBot) {
     ): Promise<void> {
       try {
         await runScheduled(validateEnv(rawEnv));
-      } catch {
+      } catch (error) {
+        const summary = errorSummary(error);
         console.error(
           JSON.stringify({
             level: "error",
             message: "Campaign dispatch failed",
+            ...summary,
           }),
         );
-        throw new Error("Campaign dispatch failed");
+        throw new Error("Campaign dispatch failed", { cause: error });
       }
     },
     async queue(batch: MessageBatch<unknown>, rawEnv: Bindings): Promise<void> {
