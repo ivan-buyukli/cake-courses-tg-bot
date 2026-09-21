@@ -44,6 +44,7 @@ type BotFactory = typeof createBot;
 function errorSummary(error: unknown): {
   category: string;
   step?: string;
+  configIssues?: string[];
 } {
   const message =
     error instanceof Error && typeof error.message === "string"
@@ -55,6 +56,15 @@ function errorSummary(error: unknown): {
       : "";
   const text = `${message} ${cause}`.toLowerCase();
   const stepMatch = /^Scheduled step failed: ([a-z-]+)$/.exec(message);
+  const configIssues =
+    error instanceof Error &&
+    error.cause &&
+    typeof error.cause === "object" &&
+    "configIssues" in error.cause &&
+    Array.isArray(error.cause.configIssues) &&
+    error.cause.configIssues.every((issue) => typeof issue === "string")
+      ? error.cause.configIssues
+      : undefined;
   let category = "unknown";
   if (text.includes("configuration is incomplete or invalid")) {
     category = "configuration";
@@ -73,6 +83,7 @@ function errorSummary(error: unknown): {
   return {
     category,
     ...(stepMatch ? { step: stepMatch[1] } : {}),
+    ...(configIssues ? { configIssues } : {}),
   };
 }
 

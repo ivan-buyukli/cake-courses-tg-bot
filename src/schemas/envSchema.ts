@@ -64,20 +64,44 @@ export type CourseEnv = z.infer<typeof schema> & {
   COURSE_QUEUE?: Queue;
 };
 
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function configurationError(issues: string[]): Error {
+  return new Error("Course bot configuration is incomplete or invalid", {
+    cause: { configIssues: unique(issues) },
+  });
+}
+
 export function validateEnv(raw: Bindings): CourseEnv {
-  const parsed = schema.safeParse({
+  const input = {
     ...raw,
     ADMIN_USER_IDS: raw.ADMIN_USER_IDS ?? raw.ADMIN_USER_ID ?? "",
-  });
-  if (
-    !parsed.success ||
-    typeof raw.COURSE_DB?.prepare !== "function" ||
-    (parsed.data.APP_ENV === "production" &&
-      (parsed.data.ADMIN_USER_IDS.length === 0 ||
-        typeof raw.COURSE_QUEUE?.sendBatch !== "function"))
-  ) {
+  };
+  const parsed = schema.safeParse(input);
+  const issues = parsed.success
+    ? []
+    : parsed.error.issues.map((issue) =>
+        issue.path.length ? String(issue.path[0]) : "configuration",
+      );
+  if (typeof raw.COURSE_DB?.prepare !== "function") issues.push("COURSE_DB");
+  if (!parsed.success) {
     // Zod errors may contain configuration values. Never forward them to logs.
-    throw new Error("Course bot configuration is incomplete or invalid");
+    throw configurationError(issues);
+  }
+  if (
+    parsed.data.APP_ENV === "production" &&
+    parsed.data.ADMIN_USER_IDS.length === 0
+  )
+    issues.push("ADMIN_USER_IDS");
+  if (
+    parsed.data.APP_ENV === "production" &&
+    typeof raw.COURSE_QUEUE?.sendBatch !== "function"
+  )
+    issues.push("COURSE_QUEUE");
+  if (issues.length) {
+    throw configurationError(issues);
   }
   return {
     ...parsed.data,
