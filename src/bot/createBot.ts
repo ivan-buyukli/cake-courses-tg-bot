@@ -1,324 +1,363 @@
-import { Bot, Context, session, type ApiClientOptions } from "grammy";
-import { conversations, createConversation } from "@grammyjs/conversations";
-import { BotContext, BaseBotContext, SessionData } from "../types/context.js";
-import { Env } from "../types/env.js";
+import { Bot, InlineKeyboard, InputFile, type BotConfig } from "grammy";
+import type { CourseEnv } from "../schemas/envSchema.js";
+import type { BotContext } from "../types/context.js";
+import type { MediaRecord } from "../models/course.js";
+import { mediaFromMessage } from "../utils/media.js";
+import {
+  CourseRepository,
+  type UserFilter,
+} from "../repositories/courseRepository.js";
 import { hashUserId } from "../crypto/userHash.js";
-import { KvSessionStorage } from "./session/kvSessionStorage.js";
-import { sequentialize } from "./middleware/sequentialize.js";
-import { requestContext } from "./middleware/requestContext.js";
-import { auth } from "./middleware/auth.js";
-import { errorHandler } from "./middleware/errorHandler.js";
-import { rateLimiter } from "./middleware/rateLimit.js";
-import { privateChatOnly } from "./middleware/privateChatOnly.js";
-import { startCommand } from "./commands/start.js";
-import { menuCommand } from "./commands/menu.js";
-import { cancelCommand } from "./commands/cancel.js";
-import { helpCommand } from "./commands/help.js";
-import { addCommand } from "./commands/add.js";
-import {
-  listCommand,
-  listFullCommand,
-  listTextCommand,
-} from "./commands/list.js";
-import { exportCommand } from "./commands/export.js";
-import { reportCommand } from "./commands/report.js";
-import { reportTextCommand } from "./commands/reportText.js";
-import { deleteMeCommand } from "./commands/deleteMe.js";
-import { remindersCommand } from "./commands/reminders.js";
-import { settingsCommand } from "./commands/settings.js";
-import { adminRemindersCommand } from "./commands/adminReminders.js";
-import { adminSyncExchangeRatesCommand } from "./commands/adminSyncExchangeRates.js";
-import { adminMigrateDataCommand } from "./commands/adminMigrateData.js";
-import { diagnosisCommand } from "./commands/diagnosis.js";
-import { debugMeCommand } from "./commands/debugMe.js";
-import { addConversation } from "./conversations/addConversation.js";
-import {
-  editFieldConversation,
-  editCycleConversation,
-  editReminderConversation,
-} from "./conversations/editFieldConversation.js";
-import { resumeConversation } from "./conversations/resumeConversation.js";
-import { settingsConversation } from "./conversations/settingsConversation.js";
-import {
-  deleteConfirmCallback,
-  deleteCancelCallback,
-} from "./callbacks/deleteConfirm.js";
-import {
-  privacyDeleteConfirmCallback,
-  privacyDeleteCancelCallback,
-} from "./callbacks/privacyCallbacks.js";
-import {
-  subViewCallback,
-  subEditCallback,
-  subDeleteCallback,
-  subPauseCallback,
-  subResumeCallback,
-  reminderRenewCallback,
-} from "./callbacks/subCallbacks.js";
-import {
-  editFieldCallback,
-  editCancelCallback,
-} from "./callbacks/editCallbacks.js";
-import {
-  listPageCallback,
-  listSelectCallback,
-  listDetailCallback,
-  listBackCallback,
-  listEditCallback,
-  listPauseCallback,
-  listResumeCallback,
-  listDelCallback,
-  listDeleteConfirmCallback,
-  listDeleteCancelCallback,
-  listEditFieldCallback,
-} from "./callbacks/listCallbacks.js";
-import { navigationCallback } from "./callbacks/navigationCallbacks.js";
-import { mainMenuText } from "./mainMenuActions.js";
-import {
-  MAIN_MENU_ACTIONS,
-  MAIN_MENU_BUTTON_LABELS,
-} from "./keyboards/mainMenuKeyboard.js";
-import { expiredPanelKeyboard } from "./ui/navigation.js";
+import { detectLocale, languageNames, t, type Locale } from "./i18n.js";
+import { parseCallback } from "../utils/callbackParser.js";
+import { telegramErrorInfo } from "../utils/telegramErrors.js";
+import { usersReport, usersReportKeyboard } from "./ui/users.js";
+import { registerCampaignEditor } from "./campaignEditor.js";
+import { CampaignRepository } from "../repositories/campaignRepository.js";
+import { registerCampaignTests } from "./campaignTests.js";
+import { registerScheduledMessages } from "./scheduledMessages.js";
+import { EditorStateRepository } from "../repositories/editorStateRepository.js";
+import { navigationKeyboard } from "./keyboards/navigationKeyboard.js";
 
-async function markExpiredPanel(
-  ctx: BotContext,
-  restart: "add" | "list" | "settings",
-  toast: string,
-): Promise<void> {
-  await ctx.answerCallbackQuery(toast);
-  try {
-    await ctx.editMessageText(
-      "⏳ This panel has expired.\n\nPlease start again to load the latest data.",
-      { reply_markup: expiredPanelKeyboard(restart) },
+function menu(ctx: BotContext): InlineKeyboard {
+  const kb = new InlineKeyboard()
+    .text(t(ctx.locale, "myCourse"), "nav:my_course")
+    .row()
+    .text(t(ctx.locale, "buy"), "nav:buy")
+    .text(t(ctx.locale, "language"), "nav:language");
+  if (ctx.isAdmin) kb.row().text(t(ctx.locale, "admin"), "nav:admin");
+  else
+    kb.row().text(
+      t(ctx.locale, ctx.user.opted_out ? "resume" : "stop"),
+      ctx.user.opted_out ? "nav:resume" : "nav:stop",
     );
-  } catch {
-    // A callback can outlive its source message; the toast still informs users.
+  return kb;
+}
+
+function adminKeyboard(locale: Locale): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(t(locale, "users"), "users:all:0")
+    .row()
+    .text(t(locale, "sequences"), "c:list:sequence")
+    .text(t(locale, "deliveries"), "s:list")
+    .row()
+    .text(t(locale, "back"), "nav:menu");
+}
+
+async function adminOnly(ctx: BotContext): Promise<boolean> {
+  if (ctx.isAdmin) return true;
+  await ctx.reply(t(ctx.locale, "denied"));
+  return false;
+}
+
+async function showUsers(ctx: BotContext, filter: UserFilter): Promise<void> {
+  if (!(await adminOnly(ctx))) return;
+  const entries = [];
+  let page = 0;
+  while (true) {
+    const result = await ctx.repo.listUsers(filter, page++);
+    for (const user of result.users)
+      entries.push({ user, identity: await ctx.repo.identity(user) });
+    if (!result.hasNext) break;
+  }
+  await ctx.replyWithDocument(
+    new InputFile(
+      new TextEncoder().encode(usersReport(entries, ctx.locale, ctx.timeZone)),
+      `users-${filter}.txt`,
+    ),
+    {
+      caption: t(ctx.locale, "users"),
+      reply_markup: usersReportKeyboard(ctx.locale),
+    },
+  );
+}
+
+async function previewMedia(
+  ctx: BotContext,
+  asset: MediaRecord,
+): Promise<boolean> {
+  if (asset.bot_key !== ctx.botKey) {
+    await ctx.reply(t(ctx.locale, "mediaInvalid"));
+    return false;
+  }
+  try {
+    const fileId = await ctx.repo.mediaFileId(asset);
+    const sent =
+      asset.media_type === "photo"
+        ? await ctx.replyWithPhoto(fileId)
+        : await ctx.replyWithVideo(fileId);
+    const returned = mediaFromMessage(sent);
+    if (!returned) throw new Error("Media response missing");
+    await ctx.repo.verifyMedia(asset, returned);
+    return true;
+  } catch (error) {
+    const { status, description } = telegramErrorInfo(error);
+    if (
+      status === 400 &&
+      /file[_ ]id|file identifier|wrong remote file|file reference/i.test(
+        description,
+      )
+    ) {
+      await ctx.repo.invalidateMedia(asset);
+      await ctx.reply(t(ctx.locale, "mediaInvalid"));
+      return false;
+    }
+    throw error;
   }
 }
 
-function createGetSessionKey(env: Env) {
-  return async (ctx: Context): Promise<string | undefined> => {
-    if (!ctx.from?.id) return undefined;
-    return hashUserId(ctx.from.id, env.USER_HASH_SECRET);
-  };
+async function navigate(ctx: BotContext, action: string): Promise<void> {
+  switch (action) {
+    case "start":
+      await ctx.repo.start(ctx.user.id);
+      ctx.user = (await ctx.repo.getUser(ctx.user.id))!;
+      await ctx.reply(t(ctx.locale, ctx.isAdmin ? "adminWelcome" : "welcome"), {
+        reply_markup: ctx.isAdmin ? adminKeyboard(ctx.locale) : menu(ctx),
+      });
+      break;
+    case "menu":
+      await ctx.reply(t(ctx.locale, "menu"), { reply_markup: menu(ctx) });
+      break;
+    case "admin":
+      if (await adminOnly(ctx))
+        await ctx.reply(t(ctx.locale, "adminWelcome"), {
+          reply_markup: adminKeyboard(ctx.locale),
+        });
+      break;
+    case "language":
+      await ctx.reply(t(ctx.locale, "chooseLanguage"), {
+        reply_markup: new InlineKeyboard()
+          .text(languageNames.ua, "locale:ua")
+          .text(languageNames.en, "locale:en"),
+      });
+      break;
+    case "stop":
+    case "resume": {
+      if (ctx.isAdmin) {
+        await navigate(ctx, "admin");
+        break;
+      }
+      if (!ctx.user.started_at) {
+        await ctx.reply(t(ctx.locale, "startFirst"));
+        break;
+      }
+      await ctx.repo.setOptOut(
+        ctx.user.id,
+        action === "stop",
+        ctx.eventAt,
+        ctx.update.update_id,
+      );
+      ctx.user = (await ctx.repo.getUser(ctx.user.id))!;
+      await ctx.reply(
+        t(
+          ctx.locale,
+          ctx.user.purchase_suppressed
+            ? "purchased"
+            : ctx.user.opted_out
+              ? "stopped"
+              : "resumed",
+        ),
+        { reply_markup: menu(ctx) },
+      );
+      break;
+    }
+    case "buy":
+      await ctx.reply(t(ctx.locale, "checkoutUnavailable"));
+      break;
+    case "my_course":
+      await ctx.reply(t(ctx.locale, "accessUnknown"));
+      break;
+    default:
+      await ctx.reply(t(ctx.locale, "expired"));
+  }
 }
 
 export function createBot(
-  env: Env,
-  client?: ApiClientOptions,
+  env: CourseEnv,
+  options?: BotConfig<BotContext>,
 ): Bot<BotContext> {
-  const bot = new Bot<BotContext>(env.BOT_TOKEN, { client });
-
-  const getSessionKey = createGetSessionKey(env);
-
-  // Personal subscription data is only available in private chats. This
-  // guard intentionally runs before session and request context middleware so
-  // group commands cannot touch KV, create sessions, or refresh user profiles.
-  bot.use(privateChatOnly());
-
-  // Sequentialize updates sharing the same session key to prevent
-  // read-modify-write races on KV-backed session data.
-  bot.use(sequentialize(getSessionKey));
-
-  // Session and conversations backed by Cloudflare KV with 1-hour TTL.
-  // Session keys are prefixed with "session:" and encrypted at rest using
-  // a per-user key derived from the master key and the session key.
-  // The TTL is refreshed on every write, so active conversations stay alive.
-  // Expired sessions are cleaned up automatically by KV.
-  bot.use(
-    session<SessionData, BotContext>({
-      initial: () => ({}),
-      getSessionKey,
-      storage: new KvSessionStorage(env.SUBSCRIPTION_KV, env.ENCRYPTION_KEY),
-    }),
-  );
-
-  // Core middleware stack.
-  // requestContext must run before any handler (including conversation
-  // entry points) that needs ctx.userKey, ctx.env, or ctx.requestId.
-  // errorHandler is placed before conversations/commands so it can catch
-  // errors in downstream middleware. It must run AFTER rateLimiter so
-  // rate limit responses are not treated as errors.
-  bot.use(requestContext(env));
-  bot.use(auth);
-  bot.use(rateLimiter());
-  bot.use(errorHandler);
-  bot.use(
-    conversations<BotContext, BaseBotContext>({
-      storage: {
-        type: "context",
-        adapter: {
-          read: (ctx) => {
-            if (!ctx.from?.id) return undefined;
-            return ctx.session.conversations;
-          },
-          write: (ctx, state) => {
-            if (!ctx.from?.id) return;
-            ctx.session.conversations = state;
-          },
-          delete: (ctx) => {
-            if (!ctx.from?.id) return;
-            delete ctx.session.conversations;
-          },
-        },
+  const bot = new Bot<BotContext>(env.BOT_TOKEN, {
+    ...options,
+    client: { timeoutSeconds: 20, ...options?.client },
+  });
+  const repo = new CourseRepository(env);
+  bot.use(async (ctx, next) => {
+    if (ctx.chat?.type !== "private") {
+      if (ctx.callbackQuery)
+        await ctx.answerCallbackQuery({
+          text: t(detectLocale(ctx.from?.language_code), "privateOnly"),
+          show_alert: true,
+        });
+      return;
+    }
+    if (ctx.myChatMember) {
+      await repo.setBlocked(
+        ctx.chat.id,
+        ctx.myChatMember.new_chat_member.status === "kicked",
+        ctx.myChatMember.date * 1000,
+      );
+      return;
+    }
+    // Edited messages must not re-run commands; inline callbacks lack a private chat.
+    if (
+      !ctx.from ||
+      ctx.from.is_bot ||
+      ctx.editedMessage ||
+      (!ctx.message && !ctx.callbackQuery)
+    )
+      return;
+    ctx.eventAt = ctx.message ? ctx.message.date * 1000 : Date.now();
+    ctx.repo = repo;
+    ctx.botKey = await hashUserId(ctx.me.id, env.USER_HASH_SECRET);
+    ctx.user = await repo.touchUser(
+      {
+        telegramId: ctx.from.id,
+        chatId: ctx.chat.id,
+        firstName: ctx.from.first_name,
+        lastName: ctx.from.last_name,
+        username: ctx.from.username,
       },
-    }),
-  );
-
-  // Register conversations
-  bot.use(
-    createConversation<BotContext, BaseBotContext>(addConversation, "add"),
-  );
-  bot.use(
-    createConversation<BotContext, BaseBotContext>(
-      editFieldConversation,
-      "editField",
-    ),
-  );
-  bot.use(
-    createConversation<BotContext, BaseBotContext>(
-      editCycleConversation,
-      "editCycle",
-    ),
-  );
-  bot.use(
-    createConversation<BotContext, BaseBotContext>(
-      editReminderConversation,
-      "editReminder",
-    ),
-  );
-  bot.use(
-    createConversation<BotContext, BaseBotContext>(
-      resumeConversation,
-      "resume",
-    ),
-  );
-  bot.use(
-    createConversation<BotContext, BaseBotContext>(
-      settingsConversation,
-      "settings",
-    ),
-  );
-
-  // Commands
-  bot.command("start", startCommand);
-  bot.command("menu", menuCommand);
-  bot.command("cancel", cancelCommand);
-  bot.command("help", helpCommand);
-  bot.command("add", addCommand);
-  bot.command("list_full", listFullCommand);
-  bot.command("list", listCommand);
-  bot.command("list_text", listTextCommand);
-  bot.command("export", exportCommand);
-  bot.command("report", reportCommand);
-  bot.command("report_text", reportTextCommand);
-  bot.command("delete_me", deleteMeCommand);
-  bot.command("reminders", remindersCommand);
-  bot.command("settings", settingsCommand);
-  bot.command("admin_reminders", adminRemindersCommand);
-  bot.command("admin_sync_exchange_rates", adminSyncExchangeRatesCommand);
-  bot.command("admin_migrate_data", adminMigrateDataCommand);
-  bot.command("diagnosis", diagnosisCommand);
-
-  // Dev-only commands
-  if (env.APP_ENV !== "production") {
-    bot.command("debug_me", debugMeCommand);
+      ctx.from.language_code,
+      ctx.eventAt,
+    );
+    ctx.locale = detectLocale(ctx.user.locale);
+    ctx.isAdmin = env.ADMIN_USER_IDS.includes(ctx.from.id);
+    ctx.timeZone = env.CAMPAIGN_TIMEZONE;
+    // Every private reply has a way back, including errors and completed actions.
+    ctx.api.config.use((prev, method, payload, signal) => {
+      if (
+        ["sendMessage", "sendPhoto", "sendVideo", "sendDocument"].includes(
+          method,
+        ) &&
+        "chat_id" in payload &&
+        payload.chat_id === ctx.chat?.id
+      ) {
+        const markup =
+          "reply_markup" in payload ? payload.reply_markup : undefined;
+        if (markup && "inline_keyboard" in markup) {
+          const hasMenu = markup.inline_keyboard.some((row) =>
+            row.some(
+              (button) =>
+                "callback_data" in button &&
+                ["nav:admin", "nav:menu", "nav:my_course"].includes(
+                  button.callback_data,
+                ),
+            ),
+          );
+          if (hasMenu) return prev(method, payload, signal);
+          return prev(
+            method,
+            {
+              ...payload,
+              reply_markup: {
+                inline_keyboard: [
+                  ...markup.inline_keyboard,
+                  ...navigationKeyboard(ctx.locale, ctx.isAdmin)
+                    .inline_keyboard,
+                ],
+              },
+            },
+            signal,
+          );
+        }
+        if (markup) return prev(method, payload, signal);
+        return prev(
+          method,
+          {
+            ...payload,
+            reply_markup: ctx.isAdmin ? adminKeyboard(ctx.locale) : menu(ctx),
+          },
+          signal,
+        );
+      }
+      return prev(method, payload, signal);
+    });
+    await next();
+  });
+  for (const command of [
+    "start",
+    "menu",
+    "buy",
+    "my_course",
+    "language",
+    "stop",
+    "resume",
+    "admin",
+  ]) {
+    bot.command(command, (ctx) => navigate(ctx, command));
   }
-
-  // Callbacks — use regex for dynamic callback data
-  for (const action of MAIN_MENU_ACTIONS) {
-    bot.hears(MAIN_MENU_BUTTON_LABELS[action], mainMenuText);
+  bot.command("help", async (ctx) => {
+    await ctx.reply(
+      t(ctx.locale, "help") +
+        (ctx.isAdmin ? `\n\n${t(ctx.locale, "adminHelp")}` : ""),
+    );
+  });
+  for (const command of ["support", "terms", "privacy"] as const) {
+    bot.command(command, async (ctx) => {
+      await ctx.reply(t(ctx.locale, command));
+    });
   }
-
-  bot.callbackQuery(/^nav:/, navigationCallback);
-
-  bot.callbackQuery(/^delete:confirm:/, deleteConfirmCallback);
-  bot.callbackQuery(/^delete:cancel:/, deleteCancelCallback);
-
-  // Subscription inline button callbacks
-  bot.callbackQuery(/^sub:view:/, subViewCallback);
-  bot.callbackQuery(/^sub:edit:/, subEditCallback);
-  bot.callbackQuery(/^sub:delete:/, subDeleteCallback);
-  bot.callbackQuery(/^sub:pause:/, subPauseCallback);
-  bot.callbackQuery(/^sub:resume:/, subResumeCallback);
-  bot.callbackQuery(/^reminder:renew:/, reminderRenewCallback);
-
-  // Edit field callbacks
-  bot.callbackQuery(/^edit:name:/, editFieldCallback);
-  bot.callbackQuery(/^edit:price:/, editFieldCallback);
-  bot.callbackQuery(/^edit:currency:/, editFieldCallback);
-  bot.callbackQuery(/^edit:cycle:/, editFieldCallback);
-  bot.callbackQuery(/^edit:date:/, editFieldCallback);
-  bot.callbackQuery(/^edit:reminder:/, editFieldCallback);
-  bot.callbackQuery(/^edit:cancel:/, editCancelCallback);
-
-  // Privacy callbacks
-  bot.callbackQuery(/^privacy:delete_confirm$/, privacyDeleteConfirmCallback);
-  bot.callbackQuery(/^privacy:delete_cancel$/, privacyDeleteCancelCallback);
-
-  // List manager inline panel callbacks
-  bot.callbackQuery(/^list:page:/, listPageCallback);
-  bot.callbackQuery(/^list:select:/, listSelectCallback);
-  bot.callbackQuery(/^list:detail:/, listDetailCallback);
-  bot.callbackQuery(/^list:back:/, listBackCallback);
-  bot.callbackQuery(/^list:edit:/, listEditCallback);
-  bot.callbackQuery(/^list:pause:/, listPauseCallback);
-  bot.callbackQuery(/^list:resume:/, listResumeCallback);
-  bot.callbackQuery(/^list:del:/, listDelCallback);
-  bot.callbackQuery(/^list:delok:/, listDeleteConfirmCallback);
-  bot.callbackQuery(/^list:delno:/, listDeleteCancelCallback);
-  bot.callbackQuery(/^list:ef:/, listEditFieldCallback);
-
-  // Fallback handlers for conversation-specific callbacks.
-  // These fire when a conversation button is clicked after the
-  // conversation has ended (e.g., isolate recycled, user cancelled,
-  // or timeout). They answer the callback so Telegram stops the
-  // loading spinner and inform the user the action expired.
-  bot.callbackQuery(/^cycle:/, async (ctx) => {
-    await markExpiredPanel(
-      ctx,
-      "add",
-      "This selection has expired. Please start again.",
+  bot.command("users", (ctx) => showUsers(ctx, "all"));
+  bot.command("cancel", async (ctx) => {
+    if (!(await adminOnly(ctx))) return;
+    const editors = new EditorStateRepository(env.COURSE_DB);
+    if ((await editors.active(ctx.user.id)) === "scheduled") {
+      const row = await editors.draft(ctx.user.id);
+      if (row) await editors.discard(ctx.user.id, row.nonce);
+      await ctx.reply(t(ctx.locale, "cancelled"), {
+        reply_markup: new InlineKeyboard()
+          .text(t(ctx.locale, "newScheduledMessage"), "s:new")
+          .row()
+          .text(t(ctx.locale, "back"), "s:list"),
+      });
+      return;
+    }
+    const campaigns = new CampaignRepository(env.COURSE_DB);
+    const draft = await campaigns.draft(ctx.user.id);
+    if (draft) await campaigns.discard(ctx.user.id, draft.nonce);
+    await ctx.reply(t(ctx.locale, "cancelled"), {
+      reply_markup: new InlineKeyboard()
+        .text(t(ctx.locale, "newCampaign"), "c:new:sequence")
+        .row()
+        .text(t(ctx.locale, "back"), "c:list:sequence"),
+    });
+  });
+  registerCampaignTests(bot, env);
+  registerScheduledMessages(bot, env, previewMedia);
+  registerCampaignEditor(bot, env, mediaFromMessage, previewMedia);
+  bot.on("callback_query:data", async (ctx) => {
+    const data = parseCallback(ctx.callbackQuery.data);
+    await ctx.answerCallbackQuery(
+      data ? undefined : { text: t(ctx.locale, "expired") },
     );
+    if (!data) {
+      await ctx.reply(t(ctx.locale, "expired"));
+      return;
+    }
+    switch (data[0]) {
+      case "nav":
+        await navigate(ctx, data[1]);
+        break;
+      case "locale":
+        await repo.setLocale(
+          ctx.user.id,
+          data[1],
+          ctx.eventAt,
+          ctx.update.update_id,
+        );
+        ctx.user = (await repo.getUser(ctx.user.id))!;
+        ctx.locale = ctx.user.locale;
+        await ctx.reply(t(ctx.locale, "languageSaved"), {
+          reply_markup: menu(ctx),
+        });
+        break;
+      case "users":
+        await showUsers(ctx, data[1]);
+        break;
+    }
   });
-  bot.callbackQuery(/^editcycle:/, async (ctx) => {
-    await markExpiredPanel(
-      ctx,
-      "list",
-      "This selection has expired. Please reopen the editor.",
-    );
+  bot.on("message", async (ctx) => {
+    await ctx.reply(t(ctx.locale, "help"), { reply_markup: menu(ctx) });
   });
-  bot.callbackQuery(/^editreminder:/, async (ctx) => {
-    await markExpiredPanel(
-      ctx,
-      "list",
-      "These reminder settings have expired. Please reopen the editor.",
-    );
-  });
-  bot.callbackQuery(/^addcurrency:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This currency selection has expired.");
-  });
-  bot.callbackQuery(/^addprice:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This price selection has expired.");
-  });
-  bot.callbackQuery(/^adddate:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This date selection has expired.");
-  });
-  bot.callbackQuery(/^cycleint:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This interval selection has expired.");
-  });
-  bot.callbackQuery(/^add:confirm$/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This confirmation has expired.");
-  });
-  bot.callbackQuery(/^add:cancel$/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This confirmation has expired.");
-  });
-  bot.callbackQuery(/^add:/, async (ctx) => {
-    await markExpiredPanel(ctx, "add", "This confirmation has expired.");
-  });
-  bot.callbackQuery(/^settings:/, async (ctx) => {
-    await markExpiredPanel(ctx, "settings", "These settings have expired.");
-  });
-
   return bot;
 }

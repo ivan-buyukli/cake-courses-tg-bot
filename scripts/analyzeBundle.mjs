@@ -17,19 +17,15 @@ const GZIP_BUDGET_BYTES = 2 * MIB;
 const PROJECT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SHOULD_CHECK = process.argv.includes("--check");
 
-const outputDirectory = mkdtempSync(join(tmpdir(), "subscription-bot-bundle-"));
-const wranglerExecutable = join(
-  PROJECT_ROOT,
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "wrangler.cmd" : "wrangler",
-);
+const outputDirectory = mkdtempSync(join(tmpdir(), "course-bot-bundle-"));
+const wranglerExecutable = join(PROJECT_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
 const metafilePath = join(outputDirectory, "bundle-meta.json");
 
 try {
   const result = spawnSync(
-    wranglerExecutable,
+    process.execPath,
     [
+      wranglerExecutable,
       "deploy",
       "--dry-run",
       "--outdir",

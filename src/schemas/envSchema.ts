@@ -1,67 +1,86 @@
-import { custom, enum as zodEnum, object, string } from "zod";
+import { z } from "zod";
 import { parseMasterKey } from "../crypto/masterKey.js";
-import type { ReminderQueueMessage } from "../types/reminderQueue.js";
-import type { ValidatedEnv } from "../types/env.js";
+import { DEFAULT_TIMEZONE } from "../utils/dateTime.js";
 
-function hasQueueMethods(value: unknown): value is Queue<ReminderQueueMessage> {
-  if (value === null || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.send === "function" &&
-    typeof candidate.sendBatch === "function"
-  );
-}
-
-export const envSchema = object({
-  BOT_TOKEN: string().min(1),
-  TELEGRAM_WEBHOOK_SECRET: string().min(1),
-  ENCRYPTION_KEY: string()
-    .min(1)
+const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
+const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
+const schema = z.object({
+  BOT_TOKEN: z.string().regex(/^\d+:[\w-]{20,}$/),
+  TELEGRAM_WEBHOOK_SECRET: z
+    .string()
+    .min(32)
+    .max(256)
+    .regex(/^[\w-]+$/),
+  ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[\w-]{43}$/)
+    .refine((key) => {
+      try {
+        parseMasterKey(key);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  USER_HASH_SECRET: z.string().min(32),
+  ADMIN_USER_IDS: z
+    .string()
+    .regex(/^(?:\d+(?:\s*,\s*\d+)*)?$/)
+    .transform((value) => (value ? value.split(",").map(Number) : []))
     .refine(
-      (val) => {
-        try {
-          parseMasterKey(val);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      {
-        error:
-          "ENCRYPTION_KEY must be a base64url-encoded 32-byte value. Generate with: node -e \"console.log(Buffer.from(crypto.randomBytes(32)).toString('base64url'))\"",
-      },
+      (ids) =>
+        ids.every((id) => Number.isSafeInteger(id) && id > 0) &&
+        new Set(ids).size === ids.length,
     ),
-  USER_HASH_SECRET: string().min(1),
-  ADMIN_USER_ID: string().optional(),
-  SUBSCRIPTION_KV: custom<KVNamespace>((val) => val !== undefined),
-  REMINDER_QUEUE: custom<Queue<ReminderQueueMessage>>(hasQueueMethods),
-  APP_ENV: zodEnum(["development", "production", "test"]).optional(),
-  REMINDER_DAYS_AHEAD: string()
-    .optional()
-    .refine(
-      (val) => {
-        if (val === undefined || val === "") return true;
-        const parsed = Number(val);
-        return Number.isFinite(parsed) && parsed >= 0;
-      },
-      {
-        error: "REMINDER_DAYS_AHEAD must be a non-negative integer",
-      },
-    ),
-  XCURRENCY_API_KEY: string().optional(),
+  APP_ENV: z.enum(["development", "test", "production"]).default("development"),
+  CAMPAIGN_TIMEZONE: optionalString
+    .transform((value) => value ?? DEFAULT_TIMEZONE)
+    .refine((value) => {
+      if (!value) return true;
+      try {
+        new Intl.DateTimeFormat("en", { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  COURSE_WEBSITE_URL: optionalString.refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }),
 });
 
-export function validateEnv(env: unknown): ValidatedEnv {
-  const result = envSchema.safeParse(env);
+export type Bindings = Record<string, unknown> & {
+  COURSE_DB: D1Database;
+  COURSE_QUEUE?: Queue;
+};
+export type CourseEnv = z.infer<typeof schema> & {
+  COURSE_DB: D1Database;
+  COURSE_QUEUE?: Queue;
+};
 
-  if (!result.success) {
-    const fields = Array.from(
-      new Set(
-        result.error.issues.map((issue) => issue.path.join(".") || "env"),
-      ),
-    ).sort();
-    throw new Error(`Invalid environment configuration: ${fields.join(", ")}`);
+export function validateEnv(raw: Bindings): CourseEnv {
+  const parsed = schema.safeParse({
+    ...raw,
+    ADMIN_USER_IDS: raw.ADMIN_USER_IDS ?? raw.ADMIN_USER_ID ?? "",
+  });
+  if (
+    !parsed.success ||
+    !raw.COURSE_DB?.prepare ||
+    (parsed.data.APP_ENV === "production" &&
+      parsed.data.ADMIN_USER_IDS.length === 0)
+  ) {
+    // Zod errors may contain configuration values. Never forward them to logs.
+    throw new Error("Course bot configuration is incomplete or invalid");
   }
-
-  return result.data as ValidatedEnv;
+  return {
+    ...parsed.data,
+    COURSE_DB: raw.COURSE_DB,
+    COURSE_QUEUE: raw.COURSE_QUEUE,
+  };
 }

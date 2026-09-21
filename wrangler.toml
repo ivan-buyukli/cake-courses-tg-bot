@@ -1,56 +1,31 @@
-name = "subscription-bot"
+name = "course-promotion-bot"
 main = "src/index.ts"
-compatibility_date = "2026-07-06"
+compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 minify = true
-
-rules = [
-  { type = "Data", globs = ["**/*.woff"], fallthrough = true },
-]
+rules = [{ type = "Data", globs = ["**/*.woff"], fallthrough = true }]
 
 [vars]
 APP_ENV = "production"
-REMINDER_DAYS_AHEAD = "3"
 
-# To use a real KV namespace, create one and fill in the IDs:
-#   wrangler kv:namespace create SUBSCRIPTION_KV
-#   wrangler kv:namespace create SUBSCRIPTION_KV --preview
-# Then uncomment and replace the id/preview_id below.
-[[kv_namespaces]]
-binding = "SUBSCRIPTION_KV"
-id = "00d51942c6564b588079bf62b25e47cb"
-preview_id = "6401a8087afa4916be481c9d71a8266c"
+[[d1_databases]]
+binding = "COURSE_DB"
+database_name = "course-promotion-bot"
+# Local-only placeholder. Create a real D1 database before deploying.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
 
 [triggers]
-crons = ["*/30 * * * *"]
+crons = ["* * * * *"]
 
 [[queues.producers]]
-binding = "REMINDER_QUEUE"
-queue = "subscription-reminders"
+binding = "COURSE_QUEUE"
+queue = "course-deliveries"
 
 [[queues.consumers]]
-queue = "subscription-reminders"
-max_batch_size = 10
-max_batch_timeout = 5
+queue = "course-deliveries"
+max_batch_size = 1
+max_batch_timeout = 1
+max_concurrency = 1
 max_retries = 5
-dead_letter_queue = "subscription-reminders-dlq"
-max_concurrency = 5
-retry_delay = 60
-
-[observability]
-enabled = true
-
-  [observability.logs]
-  head_sampling_rate = 1
-
-  [observability.traces]
-  enabled = true
-  head_sampling_rate = 0.01
-
-# Secrets (set via `wrangler secret put`):
-# BOT_TOKEN
-# TELEGRAM_WEBHOOK_SECRET
-# ENCRYPTION_KEY
-# USER_HASH_SECRET
-# ADMIN_USER_ID
-# XCURRENCY_API_KEY
+dead_letter_queue = "course-deliveries-dlq"

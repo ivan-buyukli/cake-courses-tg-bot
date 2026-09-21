@@ -1,9 +1,8 @@
-declare module "*.woff2" {
-  const value: ArrayBuffer;
-  export default value;
-}
-
 declare module "*.woff" {
-  const value: ArrayBuffer;
-  export default value;
+  const data: ArrayBuffer;
+  export default data;
+}
+declare module "*.wasm" {
+  const module: WebAssembly.Module;
+  export default module;
 }
