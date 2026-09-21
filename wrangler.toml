@@ -13,7 +13,7 @@ CAMPAIGN_TIMEZONE = "Europe/Berlin"
 binding = "COURSE_DB"
 database_name = "course-promotion-bot"
 # Local-only placeholder. Create a real D1 database before deploying.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "32970d2a-c5a5-4a33-a7a9-59808c8121b1"
 migrations_dir = "migrations"
 
 [triggers]
