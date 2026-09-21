@@ -100,8 +100,13 @@ export function usersReport(
   ].join("\n");
 }
 
-export function usersReportKeyboard(locale: Locale): InlineKeyboard {
-  return new InlineKeyboard()
+export function usersReportKeyboard(
+  locale: Locale,
+  next?: string,
+): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+  if (next) keyboard.text(t(locale, "nextReportPart"), next).row();
+  return keyboard
     .text(t(locale, "all"), "users:all:0")
     .text(t(locale, "blocked"), "users:blocked:0")
     .row()

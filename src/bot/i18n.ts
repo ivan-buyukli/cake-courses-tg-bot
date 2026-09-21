@@ -11,6 +11,9 @@ export const isoLanguageCode = (locale: Locale): "uk" | "en" =>
   locale === "ua" ? "uk" : "en";
 
 const en = {
+  reportPart: "Part",
+  reportMore: "More users are available in the next part.",
+  nextReportPart: "Next part",
   reportRecipients: "Recipients",
   reportTestCampaign: "Test campaign",
   enterMessageName: "Enter a name for this message (up to 100 characters).",
@@ -194,6 +197,9 @@ const en = {
 
 type Catalog = { [K in keyof typeof en]: string };
 const ua: Catalog = {
+  reportPart: "Частина",
+  reportMore: "Інші користувачі доступні в наступній частині.",
+  nextReportPart: "Наступна частина",
   reportRecipients: "Одержувачі",
   reportTestCampaign: "Тест кампанії",
   enterMessageName: "Введіть назву повідомлення (до 100 символів).",

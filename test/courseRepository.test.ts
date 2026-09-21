@@ -1,5 +1,8 @@
 import { createTestDatabase, testBindings } from "./courseTestUtils.js";
-import { CourseRepository } from "../src/repositories/courseRepository.js";
+import {
+  CourseRepository,
+  USER_REPORT_PAGE_SIZE,
+} from "../src/repositories/courseRepository.js";
 import { validateEnv } from "../src/schemas/envSchema.js";
 
 describe("course repository on SQLite", () => {
@@ -29,7 +32,7 @@ describe("course repository on SQLite", () => {
     expect(again.id).toBe(user.id);
     expect(user.locale).toBe("ua");
     expect(again.locale).toBe("ua");
-    expect((await repo.listUsers("all", 0)).users[0]!.locale).toBe("ua");
+    expect((await repo.userReportPage("all")).users[0]!.locale).toBe("ua");
     expect(await repo.identity(again)).toEqual({
       ...identity,
       firstName: "New Name",
@@ -95,19 +98,44 @@ describe("course repository on SQLite", () => {
     expect((await repo.getUser(user.id))?.blocked).toBe(0);
   });
 
-  it("pages without loading every user and filters status", async () => {
-    for (let i = 0; i < 10; i++)
-      await repo.touchUser({ ...identity, telegramId: i + 1 }, "en", 1000);
-    const first = await repo.listUsers("all", 0);
-    const second = await repo.listUsers("all", 1);
-    expect(first.users).toHaveLength(8);
-    expect(first.hasNext).toBe(true);
-    expect(second.users).toHaveLength(2);
+  it("bounds reports and pages by a stable cutoff, including filters", async () => {
+    database.sqlite.exec(`
+      WITH RECURSIVE numbers(n) AS (VALUES(1) UNION ALL SELECT n + 1 FROM numbers WHERE n < 1001)
+      INSERT INTO users(id, user_key, identity_cipher, locale, is_admin, first_seen_at, last_seen_at, profile_event_at, reachability_event_at)
+      SELECT 'fixture-' || n, 'key-' || n, 'unused-cipher', 'uk', 0, 1000, 1000, 1000, 1000 FROM numbers;
+      INSERT INTO user_ordinals(user_id) SELECT id FROM users ORDER BY id;
+    `);
+    const queries = vi.spyOn(database.db, "prepare");
+    const first = await repo.userReportPage("all");
+    expect(queries).toHaveBeenCalledTimes(2);
+    await repo.touchUser(identity, "en", 2000);
+    queries.mockClear();
+    const second = await repo.userReportPage("all", {
+      after: first.nextAfter!,
+      cutoff: first.cutoff,
+    });
+    expect(queries).toHaveBeenCalledTimes(1);
+    queries.mockRestore();
+    const third = await repo.userReportPage("all", {
+      after: second.nextAfter!,
+      cutoff: first.cutoff,
+    });
+    expect(first.users).toHaveLength(USER_REPORT_PAGE_SIZE);
+    expect(second.users).toHaveLength(USER_REPORT_PAGE_SIZE);
+    expect(third.users).toHaveLength(1);
+    expect(third.nextAfter).toBeUndefined();
     expect(
-      new Set([...first.users, ...second.users].map((u) => u.id)).size,
-    ).toBe(10);
-    await repo.setBlocked(1, true, 3000);
-    expect((await repo.listUsers("blocked", 0)).users).toHaveLength(1);
+      new Set(
+        [...first.users, ...second.users, ...third.users].map((u) => u.id),
+      ).size,
+    ).toBe(1001);
+    database.sqlite
+      .prepare("UPDATE users SET blocked = 1 WHERE id = ?")
+      .run(third.users[0]!.id);
+    const blocked = await repo.userReportPage("blocked");
+    expect(blocked.users).toHaveLength(1);
+    expect(blocked.nextAfter).toBeUndefined();
+    expect((await repo.userReportPage("paid")).users).toHaveLength(0);
   });
 
   it("claims an update once and fences an old lease", async () => {

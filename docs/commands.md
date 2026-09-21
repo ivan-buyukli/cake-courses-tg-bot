@@ -12,7 +12,7 @@ Implemented interfaces support Ukrainian (`ua`) and English (`en`).
 | /terms, /support | Unconfigured until client details arrive |
 | /privacy | Data-handling notice |
 | /admin | Admin menu |
-| /users | Download a UTF-8 text table of all matching users, with profile details, progress, payment and interaction dates |
+| /users | Download a UTF-8 text table with profile details, progress, payment and interaction dates; reports over 500 users have numbered files and a Next part button |
 | /messages | Create/edit localized relative sequences, preview and confirm publication |
 | /deliveries, /broadcasts | Standalone scheduled message editor with calendar, hour/minute picker, media preview and confirmation |
 | /test | Admin's own campaign test progress, refresh and stop; start from Test campaign in the editor |

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "wrangler dev --var APP_ENV:development",
     "db:migrate:local": "wrangler d1 migrations apply COURSE_DB --local",
-    "deploy": "pnpm bundle:check && wrangler deploy",
+    "db:migrate:remote": "wrangler d1 migrations apply COURSE_DB --remote",
+    "deploy:check": "node scripts/checkDeployment.mjs",
+    "deploy": "node scripts/checkDeployment.mjs && node scripts/analyzeBundle.mjs --check && wrangler deploy",
     "bundle:analyze": "node scripts/analyzeBundle.mjs",
     "bundle:check": "node scripts/analyzeBundle.mjs --check",
     "command:push": "node scripts/pushCommands.mjs",

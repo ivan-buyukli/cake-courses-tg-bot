@@ -72,6 +72,10 @@ excluded. Unknown is not treated as verified unpaid; payment synchronization is 
 unimplemented. Filters are checked at enrollment/dispatch and immediately before sending,
 using the immutable published version. These fields require no new database migration.
 Use `/users` to download a UTF-8 text report with all matching users and their details.
+Reports over 500 users are split into numbered files; choose **Next part** to continue.
+The report fixes the registration cutoff at the first part, while statuses are read
+when each part is generated. Each request uses at most two report queries and retains
+at most 500 users in memory; no single request scans all report pages.
 Failed and uncertain deliveries remain held; there is no manual retry interface.
 Locally trigger Cron with `http://127.0.0.1:8787/cdn-cgi/local/scheduled`.
 Wrangler does not automatically run local Cron triggers.
@@ -90,7 +94,7 @@ The test response includes progress, Refresh and Stop buttons. `/test` also reop
 Cancellation stops unsent work; a Telegram request already in flight may still arrive.
 Failed or uncertain sends stay held. Stop the test and start a new one after correcting the campaign.
 
-Apply `npm run db:migrate:local` for migration `0003_campaign_tests.sql` before running this version.
+Run `npm run db:migrate:local` to apply all pending migrations before running this version.
 Tests share the live Cron/queue pipeline and Telegram sender. Due first messages are queued when a test starts.
 For real-timing tests and normal campaigns locally, trigger `/cdn-cgi/local/scheduled` periodically, for example in Git Bash:
 
@@ -135,6 +139,12 @@ Tests use real in-memory SQLite through a D1-compatible adapter and mocked Teleg
 Passing these tests does not prove live Telegram or Stripe integration.
 
 ## Deployment and data
+
+Follow [the production deployment checklist](docs/deployment.md) for account setup,
+remote migrations, secrets, webhook registration and live smoke tests.
+`npm run deploy:check` validates local production bindings without contacting Cloudflare.
+`npm run deploy` works with either npm or pnpm and checks configuration and bundle size
+before uploading. Production requires a working delivery queue binding as well as admins.
 
 wrangler.toml uses a local-only D1 ID placeholder. Create a real database, replace the ID,
 apply remote migrations, and configure production secrets/admins before deployment.

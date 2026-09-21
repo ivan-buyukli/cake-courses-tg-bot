@@ -65,7 +65,7 @@ Render scheduled system labels/actions in the recipient's saved language and adm
 
 ### Admin user list
 
-Send a downloadable UTF-8 text table containing every user matching the selected filter. There is no in-chat table or individual user selection. Include name, username, language, sequence progress and delivery status, availability, payment status, first interaction and last interaction.
+Send downloadable UTF-8 text tables containing users matching the selected filter. Reports are bounded to 500 users per numbered file; a Next part button continues with a stable registration cutoff. Statuses are read per part rather than frozen across the report. There is no in-chat table or individual user selection. Include name, username, language, sequence progress and delivery status, availability, payment status, first interaction and last interaction.
 
 | User | Sequence | Availability | Payment |
 |---|---|---|---|

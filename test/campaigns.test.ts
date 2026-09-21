@@ -111,7 +111,7 @@ describe("campaign publication, scheduling and delivery", () => {
     await campaigns.setOutcome(job, "unknown");
     expect(
       userProgress(
-        (await users.listUsers("all", 0)).users.find(
+        (await users.userReportPage("all")).users.find(
           (user) => user.id === userId,
         )!,
         "en",

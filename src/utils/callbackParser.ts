@@ -9,6 +9,11 @@ const page = z
   .string()
   .regex(/^\d{1,6}$/)
   .transform(Number);
+const ordinal = z
+  .string()
+  .regex(/^(?:0|[1-9]\d{0,15})$/)
+  .transform(Number)
+  .refine(Number.isSafeInteger);
 const schemas = z.union([
   z.tuple([z.literal("s"), z.enum(["list", "new"])]),
   z.tuple([
@@ -78,6 +83,9 @@ const schemas = z.union([
   ]),
   z.tuple([z.literal("locale"), locale]),
   z.tuple([z.literal("users"), z.enum(userFilters), page]),
+  z
+    .tuple([z.literal("users"), z.enum(userFilters), ordinal, ordinal, page])
+    .refine((data) => data[2] > 0 && data[2] < data[3] && data[4] >= 2),
   z.tuple([
     z.literal("c"),
     z.enum(["list", "new"]),

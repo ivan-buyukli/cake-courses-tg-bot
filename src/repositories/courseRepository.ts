@@ -9,7 +9,11 @@ import type {
   MediaRecord,
 } from "../models/course.js";
 
-export const PAGE_SIZE = 8;
+export const USER_REPORT_PAGE_SIZE = 500;
+export interface UserReportCursor {
+  after: number;
+  cutoff: number;
+}
 export const userFilters = ["all", "blocked", "stopped", "paid"] as const;
 export type UserFilter = (typeof userFilters)[number];
 const filterSql: Record<UserFilter, string> = {
@@ -148,21 +152,35 @@ export class CourseRepository {
       .run();
   }
 
-  async listUsers(
+  async userReportPage(
     filter: UserFilter,
-    page: number,
-  ): Promise<{ users: UserRecord[]; hasNext: boolean }> {
+    cursor?: UserReportCursor,
+  ): Promise<{ users: UserRecord[]; nextAfter?: number; cutoff: number }> {
+    const cutoff =
+      cursor?.cutoff ??
+      (await this.db
+        .prepare(
+          "SELECT COALESCE(MAX(ordinal), 0) AS cutoff FROM user_ordinals",
+        )
+        .first<{ cutoff: number }>())!.cutoff;
     const { results } = await this.db
-      .prepare(`SELECT users.*, ${progressSql} FROM users WHERE ${filterSql[filter]}
-      ORDER BY first_seen_at, id LIMIT ? OFFSET ?`)
-      .bind(PAGE_SIZE + 1, page * PAGE_SIZE)
-      .all<UserRecord>();
+      .prepare(`SELECT users.*, ${progressSql}, o.ordinal AS report_ordinal
+      FROM user_ordinals o JOIN users ON users.id = o.user_id
+      WHERE ${filterSql[filter]} AND o.ordinal > ? AND o.ordinal <= ?
+      ORDER BY o.ordinal LIMIT ?`)
+      .bind(cursor?.after ?? 0, cutoff, USER_REPORT_PAGE_SIZE + 1)
+      .all<UserRecord & { report_ordinal: number }>();
+    const page = results.slice(0, USER_REPORT_PAGE_SIZE);
     return {
-      users: results.slice(0, PAGE_SIZE).map((user) => ({
+      users: page.map(({ report_ordinal: _ordinal, ...user }) => ({
         ...user,
         locale: detectLocale(user.locale),
       })),
-      hasNext: results.length > PAGE_SIZE,
+      nextAfter:
+        results.length > USER_REPORT_PAGE_SIZE
+          ? page.at(-1)!.report_ordinal
+          : undefined,
+      cutoff,
     };
   }
 

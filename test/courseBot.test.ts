@@ -100,7 +100,7 @@ describe("course bot", () => {
     expect(calls.some((c) => c.method === "sendDocument")).toBe(false);
   });
 
-  it("exports all pages and applies filters, including an empty result", async () => {
+  it("exports user details and applies filters, including an empty result", async () => {
     const { bot, calls, env } = setupBot(database.db);
     const repo = new CourseRepository(env);
     for (let i = 0; i < 25; i++) {
@@ -124,6 +124,79 @@ describe("course bot", () => {
       new TextDecoder().decode(await calls.at(-1)!.payload.document.toRaw()),
     ).toContain(catalogs.en.noUsers);
   });
+
+  it.each(["en", "ua"] as const)(
+    "exports bounded report parts with admin-only continuation in %s",
+    async (locale) => {
+      const { bot, calls, env } = setupBot(database.db);
+      await bot.handleUpdate(callback(`locale:${locale}`, 100, 1));
+      database.sqlite.exec(`
+      WITH RECURSIVE numbers(n) AS (VALUES(1) UNION ALL SELECT n + 1 FROM numbers WHERE n < 1000)
+      INSERT INTO users(id, user_key, identity_cipher, locale, is_admin, first_seen_at, last_seen_at, profile_event_at, reachability_event_at)
+      SELECT 'fixture-' || n, 'key-' || n, 'unused-cipher', 'en', 0, 1000, 1000, 1000, 1000 FROM numbers;
+      INSERT INTO user_ordinals(user_id) SELECT id FROM users WHERE id LIKE 'fixture-%' ORDER BY id;
+    `);
+      const identity = vi
+        .spyOn(CourseRepository.prototype, "identity")
+        .mockImplementation(async (user) => ({
+          telegramId: 100,
+          chatId: 100,
+          firstName: `Person ${user.id}`,
+        }));
+      const queries = vi.spyOn(database.db, "prepare");
+      try {
+        await bot.handleUpdate(command("/users", 100, 2));
+        expect(queries).toHaveBeenCalledTimes(4);
+        const document = () => calls.at(-1)!.payload;
+        const continuation = () =>
+          document()
+            .reply_markup.inline_keyboard.flat()
+            .find(
+              (button: { text: string }) =>
+                button.text === catalogs[locale].nextReportPart,
+            )?.callback_data as string | undefined;
+        expect(document().document.filename).toBe("users-all-part-1.txt");
+        expect(document().caption).toContain(catalogs[locale].reportMore);
+        const first = new TextDecoder().decode(
+          await document().document.toRaw(),
+        );
+        const next = continuation()!;
+        expect(parseCallback(next)).toBeDefined();
+        expect(next.length).toBeLessThanOrEqual(64);
+        await bot.handleUpdate(callback(next, 300, 3));
+        expect(calls.at(-1)!.payload.text).toBe(catalogs.en.denied);
+        queries.mockClear();
+        await bot.handleUpdate(callback(next, 100, 4));
+        expect(queries).toHaveBeenCalledTimes(3);
+        expect(document().document.filename).toBe("users-all-part-2.txt");
+        const second = new TextDecoder().decode(
+          await document().document.toRaw(),
+        );
+        const last = continuation()!;
+        await bot.handleUpdate(callback(last, 100, 5));
+        expect(document().document.filename).toBe("users-all-part-3.txt");
+        expect(continuation()).toBeUndefined();
+        expect(document().caption).not.toContain(catalogs[locale].reportMore);
+        const third = new TextDecoder().decode(
+          await document().document.toRaw(),
+        );
+        const names = [first, second, third].flatMap(
+          (report) => report.match(/Person fixture-\d+/g) ?? [],
+        );
+        expect(names).toHaveLength(1000);
+        expect(new Set(names).size).toBe(1000);
+        env.ADMIN_USER_IDS = [200];
+        await bot.handleUpdate(callback(next, 100, 6));
+        expect(calls.at(-1)!.payload.text).toBe(catalogs[locale].denied);
+        expect(
+          calls.filter((call) => call.method === "sendDocument"),
+        ).toHaveLength(3);
+      } finally {
+        queries.mockRestore();
+        identity.mockRestore();
+      }
+    },
+  );
 
   it.each(["en", "ua"])(
     "removes obsolete menu controls in %s",
@@ -385,6 +458,11 @@ describe("configuration and translation boundaries", () => {
       "users:any:0",
       "users:all:-1",
       "users:all:1e3",
+      "users:all:1:10:1",
+      "users:all:10:1:2",
+      "users:all:0:10:2",
+      "users:all:1:9007199254740992:2",
+      "users:all:1:1e3:2",
       "locale:fr",
       "preview:abc",
       "nav:admin:extra",
@@ -535,5 +613,25 @@ describe("Worker webhook", () => {
       (await worker.fetch(new Request("https://example.com/ready"), env))
         .status,
     ).toBe(200);
+  });
+
+  it("does not report production ready without the delivery queue or database migrations", async () => {
+    const worker = createWorker();
+    const request = new Request("https://example.com/ready");
+    const raw = { ...testBindings(database.db), APP_ENV: "production" };
+    expect((await worker.fetch(request, raw)).status).toBe(503);
+    const configured = {
+      ...raw,
+      COURSE_QUEUE: { sendBatch: vi.fn() } as unknown as Queue,
+    };
+    const ready = await worker.fetch(request, configured);
+    expect(ready.status).toBe(200);
+    expect(await ready.json()).toMatchObject({
+      adminConfigured: true,
+      schedulingEnabled: true,
+      checkoutEnabled: false,
+    });
+    database.sqlite.exec("DROP TABLE scheduled_message_drafts");
+    expect((await worker.fetch(request, configured)).status).toBe(503);
   });
 });

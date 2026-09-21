@@ -10,11 +10,12 @@ dist/
 # Cloudflare / Wrangler
 .wrangler/
 .mf/
-.dev.vars
+.dev.vars*
 
 # Environment variables
 .env
-.env.*.local
+.env.*
+!.env.example
 
 # Logs
 *.log

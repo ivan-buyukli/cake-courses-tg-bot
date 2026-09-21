@@ -71,9 +71,10 @@ export function validateEnv(raw: Bindings): CourseEnv {
   });
   if (
     !parsed.success ||
-    !raw.COURSE_DB?.prepare ||
+    typeof raw.COURSE_DB?.prepare !== "function" ||
     (parsed.data.APP_ENV === "production" &&
-      parsed.data.ADMIN_USER_IDS.length === 0)
+      (parsed.data.ADMIN_USER_IDS.length === 0 ||
+        typeof raw.COURSE_QUEUE?.sendBatch !== "function"))
   ) {
     // Zod errors may contain configuration values. Never forward them to logs.
     throw new Error("Course bot configuration is incomplete or invalid");

@@ -6,6 +6,7 @@ import { mediaFromMessage } from "../utils/media.js";
 import {
   CourseRepository,
   type UserFilter,
+  type UserReportCursor,
 } from "../repositories/courseRepository.js";
 import { hashUserId } from "../crypto/userHash.js";
 import { detectLocale, languageNames, t, type Locale } from "./i18n.js";
@@ -50,24 +51,30 @@ async function adminOnly(ctx: BotContext): Promise<boolean> {
   return false;
 }
 
-async function showUsers(ctx: BotContext, filter: UserFilter): Promise<void> {
+async function showUsers(
+  ctx: BotContext,
+  filter: UserFilter,
+  cursor?: UserReportCursor & { part: number },
+): Promise<void> {
   if (!(await adminOnly(ctx))) return;
+  const result = await ctx.repo.userReportPage(filter, cursor);
   const entries = [];
-  let page = 0;
-  while (true) {
-    const result = await ctx.repo.listUsers(filter, page++);
-    for (const user of result.users)
-      entries.push({ user, identity: await ctx.repo.identity(user) });
-    if (!result.hasNext) break;
-  }
+  for (const user of result.users)
+    entries.push({ user, identity: await ctx.repo.identity(user) });
+  const part = cursor?.part ?? 1;
+  const multipart = !!cursor || result.nextAfter !== undefined;
+  const next =
+    result.nextAfter === undefined
+      ? undefined
+      : `users:${filter}:${result.nextAfter}:${result.cutoff}:${part + 1}`;
   await ctx.replyWithDocument(
     new InputFile(
       new TextEncoder().encode(usersReport(entries, ctx.locale, ctx.timeZone)),
-      `users-${filter}.txt`,
+      `users-${filter}${multipart ? `-part-${part}` : ""}.txt`,
     ),
     {
-      caption: t(ctx.locale, "users"),
-      reply_markup: usersReportKeyboard(ctx.locale),
+      caption: `${t(ctx.locale, "users")}${multipart ? ` | ${t(ctx.locale, "reportPart")} ${part}` : ""}${next ? `\n${t(ctx.locale, "reportMore")}` : ""}`,
+      reply_markup: usersReportKeyboard(ctx.locale, next),
     },
   );
 }
@@ -352,7 +359,13 @@ export function createBot(
         });
         break;
       case "users":
-        await showUsers(ctx, data[1]);
+        await showUsers(
+          ctx,
+          data[1],
+          data.length === 5
+            ? { after: data[2], cutoff: data[3], part: data[4] }
+            : undefined,
+        );
         break;
     }
   });
