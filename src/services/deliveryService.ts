@@ -17,12 +17,12 @@ const queueMessage = z.union([
   z.object({ testDeliveryId: deliveryId }).strict(),
 ]);
 
-async function runScheduledStep(
+async function runScheduledStep<T>(
   step: string,
-  operation: () => Promise<unknown>,
-): Promise<void> {
+  operation: () => Promise<T>,
+): Promise<T> {
   try {
-    await operation();
+    return await operation();
   } catch (error) {
     throw new Error(`Scheduled step failed: ${step}`, { cause: error });
   }
@@ -31,9 +31,12 @@ async function runScheduledStep(
 export async function runScheduled(env: CourseEnv): Promise<void> {
   const queue = env.COURSE_QUEUE;
   if (!queue) throw new Error("Delivery queue is not configured");
-  const keys: string[] = [];
-  for (const id of env.ADMIN_USER_IDS)
-    keys.push(await hashUserId(id, env.USER_HASH_SECRET));
+  const keys = await runScheduledStep("hash-admin-ids", async () => {
+    const hashed: string[] = [];
+    for (const id of env.ADMIN_USER_IDS)
+      hashed.push(await hashUserId(id, env.USER_HASH_SECRET));
+    return hashed;
+  });
   const predicate = keys.length
     ? `user_key IN (${keys.map(() => "?").join(",")})`
     : "0";

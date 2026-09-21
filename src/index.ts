@@ -56,7 +56,9 @@ function errorSummary(error: unknown): {
   const text = `${message} ${cause}`.toLowerCase();
   const stepMatch = /^Scheduled step failed: ([a-z-]+)$/.exec(message);
   let category = "unknown";
-  if (text.includes("delivery queue is not configured")) {
+  if (text.includes("configuration is incomplete or invalid")) {
+    category = "configuration";
+  } else if (text.includes("delivery queue is not configured")) {
     category = "missing-queue-binding";
   } else if (
     text.includes("no such table") ||
